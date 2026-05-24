@@ -1,0 +1,154 @@
+/**
+ * Registration page component.
+ */
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Loader2 } from 'lucide-react';
+
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'student',
+    branch: 'CSE',
+    year: 4,
+    cgpa: 0,
+    phone: '',
+    collegeId: '' // Should be populated from a list in a real app
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const user = await register(formData);
+      if (user.role === 'coordinator') navigate('/coordinator');
+      else navigate('/student');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <h2 className="text-center text-3xl font-extrabold text-primary-600">PlaceIQ</h2>
+        <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">Create your account</h2>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <input
+                name="name" type="text" required value={formData.name} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Email address</label>
+              <input
+                name="email" type="email" required value={formData.email} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                name="password" type="password" required value={formData.password} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Phone Number</label>
+              <input
+                name="phone" type="text" required value={formData.phone} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                placeholder="+91..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">College ID (from seed)</label>
+              <input
+                name="collegeId" type="text" required value={formData.collegeId} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                placeholder="Paste college ID here"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Role</label>
+              <select
+                name="role" value={formData.role} onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+              >
+                <option value="student">Student</option>
+                <option value="coordinator">Coordinator</option>
+              </select>
+            </div>
+
+            {formData.role === 'student' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Branch</label>
+                  <input
+                    name="branch" type="text" value={formData.branch} onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">CGPA</label>
+                  <input
+                    name="cgpa" type="number" step="0.1" value={formData.cgpa} onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4">
+              <button
+                type="submit" disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Register'}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
+              Already have an account? Sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
