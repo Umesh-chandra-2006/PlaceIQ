@@ -784,6 +784,7 @@ const AdminApp = () => {
   };
 
   const renderProfile = () => {
+    const isPaid = college?.licenceStatus === 'paid';
     return (
       <div className="space-y-6 text-zinc-100 max-w-xl animate-fadeIn font-sans">
         <div>
