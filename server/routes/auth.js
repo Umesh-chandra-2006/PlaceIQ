@@ -23,8 +23,13 @@ router.post("/login", async (req, res) => {
       }
       if (user.collegeId) {
         const userCollege = await College.findById(user.collegeId);
-        if (userCollege && userCollege.isDeleted === true) {
-          return res.status(403).json({ error: "Your institution account has been suspended or deleted. Please contact support." });
+        if (userCollege) {
+          if (userCollege.isDeleted === true) {
+            return res.status(403).json({ error: "Your institution account has been suspended or deleted. Please contact support." });
+          }
+          if (userCollege.isActive === false) {
+            return res.status(403).json({ error: "Your institution account has been deactivated. Please contact support." });
+          }
         }
       }
       if (!user.isSetup) {

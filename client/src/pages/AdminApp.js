@@ -117,11 +117,6 @@ const AdminApp = () => {
       return alert("Please fill out all fields.");
     }
     
-    // Domain restriction check
-    if (!newCollege.emailDomain.toLowerCase().endsWith('.edu.in')) {
-      return alert("Email Domain must end with '.edu.in' (e.g. 'anurag.edu.in').");
-    }
-
     setSubmittingCollege(true);
     setGeneratedLink('');
     try {
@@ -239,7 +234,7 @@ const AdminApp = () => {
                   <tr>
                     <th className="px-4 py-3">College Name</th>
                     <th className="px-4 py-3">Email Domain</th>
-                    <th className="px-4 py-3">Licence Status</th>
+                    <th className="px-4 py-3">Licence / Status</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -250,16 +245,25 @@ const AdminApp = () => {
                     <tr key={college._id} className="hover:bg-zinc-900/30 transition-colors">
                       <td className="px-4 py-3">
                         <div className="font-semibold text-zinc-200">{college.name}</div>
-                        <div className="text-[10px] font-mono text-zinc-500 mt-0.5">{college._id}</div>
+                        <div className="text-[10px] font-mono text-zinc-550 mt-0.5">{college._id}</div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-zinc-300">@{college.emailDomain}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase ${
-                          college.licenceStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-500' :
-                          college.licenceStatus === 'expired' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
-                        }`}>
-                          {college.licenceStatus}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase ${
+                            college.licenceStatus === 'paid' ? 'bg-emerald-500/10 text-emerald-500' :
+                            college.licenceStatus === 'expired' ? 'bg-red-500/10 text-red-500' : 'bg-amber-500/10 text-amber-500'
+                          }`}>
+                            {college.licenceStatus}
+                          </span>
+                          <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold uppercase ${
+                            college.isActive !== false 
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-550/20' 
+                              : 'bg-red-500/10 text-red-400 border border-red-550/20'
+                          }`}>
+                            {college.isActive !== false ? 'Active' : 'Deactivated'}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="relative flex justify-end">
@@ -329,6 +333,26 @@ const AdminApp = () => {
                               </button>
                               <hr className="border-zinc-850 my-1" />
                               <button 
+                                onClick={async () => {
+                                  try {
+                                    const { data } = await axios.put(`/admin/colleges/${college._id}/toggle-active`);
+                                    alert(data.message);
+                                    fetchColleges();
+                                    setActiveDropdown(null);
+                                  } catch (e) {
+                                    alert(e.response?.data?.error || "Failed to toggle status.");
+                                  }
+                                }}
+                                className={`w-full px-3 py-2 flex items-center justify-between transition-colors ${
+                                  college.isActive !== false 
+                                    ? 'text-amber-500 hover:bg-amber-500/10 hover:text-amber-400' 
+                                    : 'text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-450'
+                                }`}
+                              >
+                                <span>{college.isActive !== false ? "Deactivate College" : "Activate College"}</span>
+                              </button>
+                              <hr className="border-zinc-850 my-1" />
+                              <button 
                                 onClick={() => { handleDeleteCollege(college._id, college.name); setActiveDropdown(null); }}
                                 className="w-full px-3 py-2 text-red-500 hover:bg-red-500/10 font-semibold flex items-center gap-1.5 transition-colors"
                               >
@@ -393,9 +417,9 @@ const AdminApp = () => {
                     value={newCollege.emailDomain}
                     onChange={e => setNewCollege({ ...newCollege, emailDomain: e.target.value.replace(/@/g, '') })}
                     className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
-                    placeholder="e.g. anurag.edu.in"
+                    placeholder="e.g. anurag.edu"
                   />
-                  <span className="text-[10px] text-zinc-500 mt-1 block">Enter only the domain — <strong className="text-zinc-400">without @</strong> (e.g. <span className="font-mono">anu.edu.in</span>, not @anu.edu.in).</span>
+                  <span className="text-[10px] text-zinc-500 mt-1 block">Enter only the domain — <strong className="text-zinc-400">without @</strong> (e.g. <span className="font-mono">anu.edu</span> or <span className="font-mono">anu.ac.in</span>, not @anu.edu).</span>
                 </div>
                 <div>
                   <label className="block text-xs font-medium font-mono uppercase text-zinc-400 tracking-wider mb-1.5">Admin Full Name</label>

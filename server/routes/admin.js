@@ -28,14 +28,25 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
       return res.status(400).json({ error: `Admin email must end with @${emailDomain}` });
     }
 
-    if (!emailDomain.endsWith(".edu.in")) {
-      return res.status(400).json({ error: "Email Domain must end with '.edu.in' (e.g. 'anurag.edu.in')." });
+    // Check if college domain already exists
+    const existingCollege = await College.findOne({ emailDomain });
+    if (existingCollege) {
+      if (existingCollege.isActive === false && !existingCollege.isDeleted) {
+        return res.status(400).json({ error: "A deactivated college with this email domain already exists. Please reactivate it from the list." });
+      }
+      return res.status(400).json({ error: "A college with this email domain already exists." });
     }
 
     // Verify user doesn't already exist
     const User = require("../models/User");
     const userExists = await User.findOne({ email: adminEmail });
     if (userExists) {
+      if (userExists.collegeId) {
+        const col = await College.findById(userExists.collegeId);
+        if (col && col.isActive === false && !col.isDeleted) {
+          return res.status(400).json({ error: "A user with this admin email exists and belongs to a deactivated college. Please reactivate the college." });
+        }
+      }
       return res.status(400).json({ error: "A user with this admin email already exists." });
     }
 
@@ -268,12 +279,12 @@ router.get("/coordinators", protect, requireRole("admin"), async (req, res) => {
 // @desc    Soft delete a college and deactivate its users
 router.delete("/colleges/:id", protect, requireRole("superadmin"), async (req, res) => {
   try {
-    const college = await College.findByIdAndUpdate(
-      req.params.id,
-      { isDeleted: true },
-      { new: true }
-    );
+    const college = await College.findById(req.params.id);
     if (!college) return res.status(404).json({ error: "College not found" });
+
+    college.isDeleted = true;
+    college.emailDomain = `${college.emailDomain}.deleted-${Date.now()}`;
+    await college.save();
 
     // Deactivate all users belonging to this college and suffix their emails to release the unique constraint
     const User = require("../models/User");
@@ -310,6 +321,26 @@ router.post("/colleges/:id/regenerate-setup", protect, requireRole("superadmin")
     const setupLink = `${origin}/setup-account?email=${encodeURIComponent(adminUser.email)}&token=${adminUser.setupToken}`;
 
     res.json({ setupLink });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @route   PUT /api/admin/colleges/:id/toggle-active
+// @desc    Toggle the active/deactivated status of a college
+router.put("/colleges/:id/toggle-active", protect, requireRole("superadmin"), async (req, res) => {
+  try {
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ error: "College not found" });
+
+    // Toggle isActive field (defaulting to true if not set)
+    college.isActive = college.isActive === false ? true : false;
+    await college.save();
+
+    res.json({ 
+      message: `College status updated to ${college.isActive ? "active" : "deactivated"}.`, 
+      college 
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
