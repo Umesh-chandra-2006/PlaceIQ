@@ -17,8 +17,7 @@ const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
-  const [isHovered, setIsHovered] = useState(false);
-  const isExpandedVisually = !isCollapsed || isHovered;
+  const isExpandedVisually = !isCollapsed;
 
   useEffect(() => {
     if (isCollapsed) {
@@ -111,17 +110,19 @@ const Sidebar = () => {
     }
   } else if (user?.role === 'admin') {
     title = "PlaceIQ Admin";
-    profilePath = "/admin/settings";
+    profilePath = "/admin/profile";
     navLinks = [
       { name: 'Overview', path: '/admin', icon: LayoutDashboard, exact: true },
       { name: 'College Settings', path: '/admin/settings', icon: Sliders },
       { name: 'Coordinators', path: '/admin/coordinators', icon: Users },
+      { name: 'My Profile', path: '/admin/profile', icon: User },
     ];
   } else if (user?.role === 'superadmin') {
     title = "PlaceIQ Super";
-    profilePath = "/admin";
+    profilePath = "/admin/profile";
     navLinks = [
       { name: 'Colleges', path: '/admin', icon: Shield, exact: true },
+      { name: 'My Profile', path: '/admin/profile', icon: User },
     ];
   }
 
@@ -162,8 +163,6 @@ const Sidebar = () => {
 
       {/* Sidebar Container */}
       <aside 
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         className={`fixed inset-y-0 left-0 bg-zinc-950/70 border-r border-zinc-800 flex flex-col text-zinc-300 z-20 transition-all duration-300 ease-out md:translate-x-0 md:m-4 md:h-[calc(100vh-2rem)] md:rounded-2xl md:border md:bg-zinc-950/70 md:backdrop-blur-md md:shadow-2xl ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isExpandedVisually ? 'md:w-64 w-64' : 'w-20'}`}>
@@ -176,6 +175,17 @@ const Sidebar = () => {
           </Link>
           
           <div className={`flex items-center ${isExpandedVisually ? 'gap-2' : 'flex-col gap-2.5'}`}>
+            {/* Collapse toggle button on desktop */}
+            {user && (
+              <button 
+                onClick={toggleCollapse}
+                className="hidden md:block p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 transition-colors"
+                title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              >
+                {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </button>
+            )}
+
             {/* Bell button on desktop side */}
             {user && (
               <button 
@@ -250,20 +260,6 @@ const Sidebar = () => {
             >
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </Link>
-          )}
-
-          {/* Collapse toggle button on desktop */}
-          {user && (
-            <button 
-              onClick={toggleCollapse}
-              className={`w-full hidden md:flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-250 hover:bg-zinc-900 rounded transition-colors ${
-                isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
-              }`}
-              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            >
-              {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-              {isExpandedVisually && <span>Collapse Sidebar</span>}
-            </button>
           )}
 
           <button

@@ -28,6 +28,10 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
       return res.status(400).json({ error: `Admin email must end with @${emailDomain}` });
     }
 
+    if (!emailDomain.endsWith(".edu.in")) {
+      return res.status(400).json({ error: "Email Domain must end with '.edu.in' (e.g. 'anurag.edu.in')." });
+    }
+
     // Verify user doesn't already exist
     const User = require("../models/User");
     const userExists = await User.findOne({ email: adminEmail });
@@ -91,7 +95,17 @@ router.put("/colleges/:id/upgrade", protect, requireRole("superadmin"), async (r
 // @route   GET /api/admin/colleges
 router.get("/colleges", protect, requireRole("superadmin"), async (req, res) => {
   try {
-    const colleges = await College.find({ isDeleted: { $ne: true } });
+    const colleges = await College.find({ isDeleted: { $ne: true } }).lean();
+    const User = require("../models/User");
+    for (let col of colleges) {
+      const adminUser = await User.findOne({ collegeId: col._id, role: "admin" });
+      if (adminUser) {
+        col.adminEmail = adminUser.email;
+        col.adminName = adminUser.name;
+        col.isAdminSetup = adminUser.isSetup;
+        col.adminSetupToken = adminUser.setupToken;
+      }
+    }
     res.json(colleges);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -261,11 +275,41 @@ router.delete("/colleges/:id", protect, requireRole("superadmin"), async (req, r
     );
     if (!college) return res.status(404).json({ error: "College not found" });
 
-    // Deactivate all users belonging to this college
+    // Deactivate all users belonging to this college and suffix their emails to release the unique constraint
     const User = require("../models/User");
-    await User.updateMany({ collegeId: req.params.id }, { isActive: false });
+    const users = await User.find({ collegeId: req.params.id });
+    for (const u of users) {
+      u.email = `${u.email}.deleted-${Date.now()}`;
+      u.isActive = false;
+      await u.save();
+    }
 
     res.json({ message: "College soft deleted successfully", college });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @route   POST /api/admin/colleges/:id/regenerate-setup
+// @desc    Regenerate the setup link for a pending college admin
+router.post("/colleges/:id/regenerate-setup", protect, requireRole("superadmin"), async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const adminUser = await User.findOne({ collegeId: req.params.id, role: "admin" });
+    if (!adminUser) return res.status(404).json({ error: "Admin user not found for this college." });
+    if (adminUser.isSetup) {
+      return res.status(400).json({ error: "This college admin has already completed account setup." });
+    }
+
+    const crypto = require("crypto");
+    adminUser.setupToken = crypto.randomBytes(20).toString("hex");
+    await adminUser.save();
+
+    const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
+    const origin = clientOrigin.replace(/\/$/, "");
+    const setupLink = `${origin}/setup-account?email=${encodeURIComponent(adminUser.email)}&token=${adminUser.setupToken}`;
+
+    res.json({ setupLink });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

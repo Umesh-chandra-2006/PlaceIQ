@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users, Trash2 } from 'lucide-react';
+import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users, Trash2, MoreVertical } from 'lucide-react';
 import Sidebar from '../components/shared/Sidebar';
 
 const AdminApp = () => {
@@ -38,6 +38,9 @@ const AdminApp = () => {
 
   // Clipboard feedback
   const [copiedText, setCopiedText] = useState('');
+
+  // Active dropdown row for colleges list
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   useEffect(() => {
     if (user.role === 'admin') {
@@ -113,6 +116,12 @@ const AdminApp = () => {
     if (!newCollege.name || !newCollege.emailDomain || !newCollege.adminName || !newCollege.adminEmail) {
       return alert("Please fill out all fields.");
     }
+    
+    // Domain restriction check
+    if (!newCollege.emailDomain.toLowerCase().endsWith('.edu.in')) {
+      return alert("Email Domain must end with '.edu.in' (e.g. 'anurag.edu.in').");
+    }
+
     setSubmittingCollege(true);
     setGeneratedLink('');
     try {
@@ -253,32 +262,80 @@ const AdminApp = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex justify-end gap-1.5">
+                        <div className="relative flex justify-end">
                           <button 
-                            onClick={() => handleUpdateLicence(college._id, 'paid')}
-                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${college.licenceStatus === 'paid' ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
+                            onClick={() => setActiveDropdown(activeDropdown === college._id ? null : college._id)}
+                            className="p-1.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors shadow-lg hover:bg-zinc-850"
+                            title="Actions"
                           >
-                            PRO
+                            <MoreVertical size={14} />
                           </button>
-                          <button 
-                            onClick={() => handleUpdateLicence(college._id, 'free')}
-                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${college.licenceStatus === 'free' ? 'bg-amber-500 text-zinc-950' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
-                          >
-                            FREE
-                          </button>
-                          <button 
-                            onClick={() => handleUpdateLicence(college._id, 'expired')}
-                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${college.licenceStatus === 'expired' ? 'bg-red-500 text-zinc-950' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
-                          >
-                            EXP
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteCollege(college._id, college.name)}
-                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-950/15 border border-red-550/20 hover:bg-red-600 hover:text-zinc-950 text-red-500 transition-all flex items-center gap-0.5"
-                            title="Delete College"
-                          >
-                            <Trash2 size={10} /> DELETE
-                          </button>
+                          {activeDropdown === college._id && (
+                            <div className="absolute right-0 mt-8 w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl z-10 py-1 text-left font-sans text-xs animate-fadeIn select-none">
+                              {!college.isAdminSetup && (
+                                <>
+                                  <button 
+                                    onClick={() => {
+                                      const link = `${window.location.origin}/setup-account?email=${encodeURIComponent(college.adminEmail)}&token=${college.adminSetupToken}`;
+                                      copyToClipboard(link, `copy-setup-${college._id}`);
+                                      alert("Admin setup link copied to clipboard!");
+                                      setActiveDropdown(null);
+                                    }}
+                                    className="w-full px-3 py-2 text-zinc-350 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-1.5 font-medium transition-colors"
+                                  >
+                                    Copy Admin Link
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (window.confirm("Regenerate a fresh setup link? The old setup link will expire.")) {
+                                        try {
+                                          const { data } = await axios.post(`/admin/colleges/${college._id}/regenerate-setup`);
+                                          setGeneratedLink(data.setupLink);
+                                          alert("Fresh setup link generated successfully! You can copy it from the setup alert card.");
+                                          fetchColleges();
+                                          setActiveDropdown(null);
+                                        } catch (e) {
+                                          alert(e.response?.data?.error || "Failed to regenerate setup link.");
+                                        }
+                                      }
+                                    }}
+                                    className="w-full px-3 py-2 text-zinc-355 hover:bg-zinc-900 hover:text-zinc-100 flex items-center gap-1.5 font-medium transition-colors"
+                                  >
+                                    Regenerate Setup Link
+                                  </button>
+                                  <hr className="border-zinc-850 my-1" />
+                                </>
+                              )}
+                              <button 
+                                onClick={() => { handleUpdateLicence(college._id, 'paid'); setActiveDropdown(null); }}
+                                className={`w-full px-3 py-2 flex items-center justify-between transition-colors ${college.licenceStatus === 'paid' ? 'text-emerald-400 font-bold bg-emerald-500/5' : 'text-zinc-350 hover:bg-zinc-900 hover:text-zinc-100'}`}
+                              >
+                                <span>License: PRO</span>
+                                {college.licenceStatus === 'paid' && <Check size={10} />}
+                              </button>
+                              <button 
+                                onClick={() => { handleUpdateLicence(college._id, 'free'); setActiveDropdown(null); }}
+                                className={`w-full px-3 py-2 flex items-center justify-between transition-colors ${college.licenceStatus === 'free' ? 'text-amber-400 font-bold bg-amber-500/5' : 'text-zinc-350 hover:bg-zinc-900 hover:text-zinc-100'}`}
+                              >
+                                <span>License: FREE</span>
+                                {college.licenceStatus === 'free' && <Check size={10} />}
+                              </button>
+                              <button 
+                                onClick={() => { handleUpdateLicence(college._id, 'expired'); setActiveDropdown(null); }}
+                                className={`w-full px-3 py-2 flex items-center justify-between transition-colors ${college.licenceStatus === 'expired' ? 'text-red-400 font-bold bg-red-500/5' : 'text-zinc-350 hover:bg-zinc-900 hover:text-zinc-100'}`}
+                              >
+                                <span>License: EXPIRED</span>
+                                {college.licenceStatus === 'expired' && <Check size={10} />}
+                              </button>
+                              <hr className="border-zinc-850 my-1" />
+                              <button 
+                                onClick={() => { handleDeleteCollege(college._id, college.name); setActiveDropdown(null); }}
+                                className="w-full px-3 py-2 text-red-500 hover:bg-red-500/10 font-semibold flex items-center gap-1.5 transition-colors"
+                              >
+                                <Trash2 size={12} /> Delete College
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -674,18 +731,60 @@ const AdminApp = () => {
     );
   };
 
+  const renderProfile = () => {
+    return (
+      <div className="space-y-6 text-zinc-100 max-w-xl animate-fadeIn font-sans">
+        <div>
+          <h1 className="text-xl font-medium tracking-tight text-zinc-100 font-sans">My Profile</h1>
+          <p className="text-zinc-400 text-sm mt-1">Your administrator account profile details.</p>
+        </div>
+
+        <div className="border border-zinc-800 rounded-lg bg-zinc-900/20 p-6 space-y-4 shadow-xl">
+          <div className="flex items-center gap-3 border-b border-zinc-800/40 pb-4">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg">
+              <Shield size={20} />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold tracking-wider text-zinc-200">Account Information</h3>
+              <p className="text-[10px] text-zinc-500 font-mono">User ID: {user?._id}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 font-mono text-xs">
+            <div className="flex justify-between py-1 border-b border-zinc-800/20">
+              <span className="text-zinc-550 uppercase">Name:</span>
+              <span className="text-zinc-200">{user?.name}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-zinc-800/20">
+              <span className="text-zinc-550 uppercase">Email:</span>
+              <span className="text-zinc-200">{user?.email}</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-zinc-550 uppercase">System Role:</span>
+              <span className="text-primary-500 uppercase font-bold tracking-widest">{user?.role}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-100 selection:bg-primary-500/30 selection:text-primary-100 font-sans">
       <Sidebar />
       <div className="flex-1 md:ml-64 pt-16 md:pt-8 p-4 md:p-8">
         <Routes>
           {user.role === 'superadmin' ? (
-            <Route path="/" element={renderSuperAdmin()} />
+            <>
+              <Route path="/" element={renderSuperAdmin()} />
+              <Route path="/profile" element={renderProfile()} />
+            </>
           ) : (
             <>
               <Route path="/" element={renderAdminDashboard()} />
               <Route path="/settings" element={renderSettings()} />
               <Route path="/coordinators" element={renderCoordinators()} />
+              <Route path="/profile" element={renderProfile()} />
             </>
           )}
           <Route path="*" element={<Navigate to="/admin" replace />} />
