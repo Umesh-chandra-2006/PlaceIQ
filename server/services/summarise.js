@@ -19,7 +19,7 @@ async function summariseJD(description) {
     });
 
     const completion = await client.chat.completions.create({
-      model: "nvidia/nemotron-3-super",
+      model: "google/gemini-2.5-flash",
       messages: [{
         role: "user",
         content: `Summarise this job description in exactly 3 short bullets.

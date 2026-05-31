@@ -10,6 +10,8 @@ const collegeSchema = new mongoose.Schema({
   licenceExpiresAt: Date,
   studentCount: { type: Number, default: 0 },
   coordinatorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  departments: { type: [String], default: ["CSE", "ECE", "MECH", "CIVIL", "EEE", "IT"] },
+  cgpaScale: { type: Number, enum: [5, 10], default: 10 },
   createdAt: { type: Date, default: Date.now }
 });
 

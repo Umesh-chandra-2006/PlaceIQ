@@ -1,87 +1,70 @@
-/**
- * Shared Navbar component with role-based navigation links.
- */
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, User, Briefcase, LayoutDashboard, BarChart3, Users, Megaphone } from 'lucide-react';
+import { LogOut, User, Megaphone } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  if (!user) return null;
+  if (!user || user.role === 'coordinator' || user.role === 'admin') return null;
+
+  const isActive = (path) => {
+    if (path === '/student') {
+      return location.pathname === '/student';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
-    <nav className="bg-white border-b border-gray-200 fixed w-full z-30 top-0">
-      <div className="px-3 py-3 lg:px-5 lg:pl-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center justify-start">
-            <Link to="/" className="flex ml-2 md:mr-24">
-              <span className="self-center text-xl font-semibold sm:text-2xl whitespace-nowrap text-primary-600">PlaceIQ</span>
+    <nav className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-30">
+      <div className="px-4 py-3 max-w-6xl mx-auto flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <Link to="/student" className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-primary-500 rounded flex items-center justify-center">
+              <span className="text-zinc-950 font-bold text-xs">P</span>
+            </div>
+            <span className="text-lg font-semibold tracking-tight text-zinc-100">PlaceIQ</span>
+          </Link>
+          <div className="hidden md:flex items-center space-x-6">
+            <Link 
+              to="/student" 
+              className={`text-sm transition-colors ${isActive('/student') ? 'text-primary-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              Job Feed
             </Link>
-            <div className="hidden md:flex space-x-8 ml-10">
-              {user.role === 'coordinator' && (
-                <>
-                  <Link to="/coordinator" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <LayoutDashboard size={18} /> Dashboard
-                  </Link>
-                  <Link to="/coordinator/jobs" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <Briefcase size={18} /> Jobs
-                  </Link>
-                  <Link to="/coordinator/students" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <Users size={18} /> Students
-                  </Link>
-                  {user.subRole === 'coordinator_paid' && (
-                    <Link to="/coordinator/analytics" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                      <BarChart3 size={18} /> Analytics
-                    </Link>
-                  )}
-                  <Link to="/coordinator/announcements" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <Megaphone size={18} /> Announcements
-                  </Link>
-                </>
-              )}
-              {user.role === 'student' && (
-                <>
-                  <Link to="/student" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <Briefcase size={18} /> Job Feed
-                  </Link>
-                  <Link to="/student/tracker" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <LayoutDashboard size={18} /> My Tracker
-                  </Link>
-                  <Link to="/student/profile" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <User size={18} /> Profile
-                  </Link>
-                  <Link to="/student/announcements" className="text-gray-700 hover:text-primary-600 flex items-center gap-2">
-                    <Megaphone size={18} /> Announcements
-                  </Link>
-                </>
-              )}
-            </div>
+            <Link 
+              to="/student/tracker" 
+              className={`text-sm transition-colors ${isActive('/student/tracker') ? 'text-primary-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              Tracker
+            </Link>
+            <Link 
+              to="/student/announcements" 
+              className={`text-sm transition-colors flex items-center gap-1 ${isActive('/student/announcements') ? 'text-primary-400 font-medium' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              Announcements
+            </Link>
           </div>
-          <div className="flex items-center">
-            <div className="flex items-center ml-3">
-              <div className="flex items-center gap-4">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500 capitalize">{user.role.replace('_', ' ')}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="p-2 text-gray-500 rounded-lg hover:text-red-600 hover:bg-gray-100"
-                  title="Logout"
-                >
-                  <LogOut size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <Link to="/student/profile" className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors">
+            <User size={16} />
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="text-zinc-400 hover:text-red-400 transition-colors"
+            title="Logout"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </div>
     </nav>

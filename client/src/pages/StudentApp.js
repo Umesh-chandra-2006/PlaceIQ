@@ -11,6 +11,7 @@ import Onboarding from '../components/student/Onboarding';
 import Profile from '../components/student/Profile';
 import StudentAnnouncements from '../components/student/StudentAnnouncements';
 import { Loader2 } from 'lucide-react';
+import Sidebar from '../components/shared/Sidebar';
 
 const StudentApp = () => {
   const { user } = useAuth();
@@ -40,9 +41,12 @@ const StudentApp = () => {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary-600" size={32} /></div>;
 
+  const isOnboardRoute = location.pathname === '/student/onboard';
+
   return (
-    <div className="pt-16 min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen bg-zinc-950 text-zinc-100 selection:bg-primary-500/30 selection:text-primary-100">
+      {!isOnboardRoute && <Sidebar />}
+      <div className={`flex-1 ${!isOnboardRoute ? 'md:ml-64 pt-16 md:pt-8' : ''} p-4 md:p-8`}>
         <Routes>
           <Route path="/" element={<Feed />} />
           <Route path="/tracker" element={<Tracker />} />

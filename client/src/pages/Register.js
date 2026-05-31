@@ -1,148 +1,45 @@
-/**
- * Registration page component.
- */
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Loader2 } from 'lucide-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Shield, Key, AlertTriangle } from 'lucide-react';
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'student',
-    branch: 'CSE',
-    year: 4,
-    cgpa: 0,
-    phone: '',
-    collegeId: '' // Should be populated from a list in a real app
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { register } = useAuth();
-  const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const user = await register(formData);
-      if (user.role === 'coordinator') navigate('/coordinator');
-      else navigate('/student');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-3xl font-extrabold text-primary-600">PlaceIQ</h2>
-        <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">Create your account</h2>
+    <div className="min-h-screen bg-[#09090b] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-primary-500/20 selection:text-primary-300 relative overflow-hidden">
+      {/* Decorative Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
+        <div className="mx-auto w-10 h-10 bg-primary-500 rounded flex items-center justify-center border border-primary-500/20 mb-4 shadow-lg shadow-primary-500/20">
+          <Shield size={20} className="text-zinc-950" />
+        </div>
+        <h2 className="text-3xl font-bold tracking-tight text-white font-mono">Account Provisioning</h2>
+        <p className="text-sm text-zinc-400 mt-2">PlaceIQ institutional placement network.</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
-              <input
-                name="name" type="text" required value={formData.name} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              />
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10">
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-lg p-6 sm:p-10 shadow-2xl backdrop-blur-md space-y-6">
+          <div className="flex items-start gap-3 bg-zinc-950 border border-zinc-850 p-4 rounded-md">
+            <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+            <div className="text-xs leading-relaxed text-zinc-400">
+              <span className="font-semibold text-zinc-200">Public registration is closed.</span> Accounts are whitelisted and provisioned securely by the global System Admin, institutional College Admins, or cohort Coordinators.
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
-              <input
-                name="email" type="email" required value={formData.email} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              />
-            </div>
+          <div className="space-y-4 text-sm text-zinc-300">
+            <h3 className="font-semibold text-white font-mono uppercase tracking-wider text-[11px]">How to access the platform:</h3>
+            <ul className="space-y-3 pl-1 leading-relaxed text-xs list-disc list-inside">
+              <li><strong className="text-zinc-100">Students:</strong> Your placement coordinator will create your account and share your email and the default login password (`student123`).</li>
+              <li><strong className="text-zinc-100">Coordinators:</strong> Your College Admin will provision your account and provide a unique setup link.</li>
+              <li><strong className="text-zinc-100">College Admins:</strong> The Prime System Admin authorizes your institution and issues your setup link.</li>
+            </ul>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <input
-                name="password" type="password" required value={formData.password} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone Number</label>
-              <input
-                name="phone" type="text" required value={formData.phone} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="+91..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">College ID (from seed)</label>
-              <input
-                name="collegeId" type="text" required value={formData.collegeId} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                placeholder="Paste college ID here"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                name="role" value={formData.role} onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              >
-                <option value="student">Student</option>
-                <option value="coordinator">Coordinator</option>
-              </select>
-            </div>
-
-            {formData.role === 'student' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Branch</label>
-                  <input
-                    name="branch" type="text" value={formData.branch} onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">CGPA</label>
-                  <input
-                    name="cgpa" type="number" step="0.1" value={formData.cgpa} onChange={handleChange}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="pt-4">
-              <button
-                type="submit" disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Register'}
-              </button>
-            </div>
-          </form>
-
-          <div className="mt-6 text-center">
-            <Link to="/login" className="font-medium text-primary-600 hover:text-primary-500">
-              Already have an account? Sign in
+          <div className="pt-4 border-t border-zinc-800/80 flex flex-col gap-3">
+            <Link 
+              to="/login" 
+              className="w-full bg-primary-500 hover:bg-primary-400 text-zinc-950 font-bold py-2 rounded text-center text-sm transition-all duration-200 shadow-md shadow-primary-500/10 hover:shadow-primary-500/20 active:scale-95 flex justify-center items-center gap-1.5"
+            >
+              <Key size={14} /> Go to Sign In
             </Link>
           </div>
         </div>

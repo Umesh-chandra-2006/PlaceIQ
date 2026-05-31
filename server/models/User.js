@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
-  role: { type: String, enum: ["admin", "coordinator", "student"], required: true },
+  role: { type: String, enum: ["superadmin", "admin", "coordinator", "student"], required: true },
   subRole: { type: String, enum: ["coordinator_free", "coordinator_paid", null], default: null },
   collegeId: { type: mongoose.Schema.Types.ObjectId, ref: "College" },
   branch: String,
@@ -26,6 +26,8 @@ const userSchema = new mongoose.Schema({
   resumeUrl: String,
   resumeUpdatedAt: Date,
   isOnboarded: { type: Boolean, default: false },
+  isSetup: { type: Boolean, default: false },
+  setupToken: String,
   aiReviewsUsed: { type: Number, default: 0 },
   aiReviewResetDate: Date,
   placementStatus: {
@@ -42,7 +44,11 @@ const userSchema = new mongoose.Schema({
   isPlaced: { type: Boolean, default: false },
   lastLoginAt: Date,
   applicationCount: { type: Number, default: 0 },
+  isActive: { type: Boolean, default: true },
+  loginEmailSent: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
+
+userSchema.index({ collegeId: 1, role: 1 });
 
 module.exports = mongoose.model("User", userSchema);

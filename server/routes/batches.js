@@ -53,15 +53,31 @@ router.get("/:id/students", protect, requireRole("coordinator"), async (req, res
 // @desc    Upload CSV to bulk import students
 router.post("/:id/students", protect, requireRole("coordinator"), upload.single("file"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
     const batch = await Batch.findOne({ _id: req.params.id, collegeId: req.user.collegeId });
-    if (!batch) return res.status(404).json({ error: "Batch not found" });
+    if (!batch) {
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: "Batch not found" });
+    }
 
     const results = [];
-    fs.createReadStream(req.file.path)
-      .pipe(parse({ columns: true, skip_empty_lines: true }))
-      .on("data", (data) => results.push(data))
-      .on("end", async () => {
-        fs.unlinkSync(req.file.path);
+    const stream = fs.createReadStream(req.file.path)
+      .pipe(parse({ columns: true, skip_empty_lines: true }));
+
+    stream.on("data", (data) => results.push(data));
+
+    stream.on("error", (err) => {
+      console.error("CSV Parse Error:", err);
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "Failed to parse CSV file: " + err.message });
+    });
+
+    stream.on("end", async () => {
+      try {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
         const newStudents = [];
         for (const row of results) {
@@ -69,6 +85,14 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
           if (!email) continue;
           
           let user = await User.findOne({ email });
+          if (user) {
+            // Prevent cross-tenant/college hijacking: check collegeId match
+            if (user.collegeId.toString() !== req.user.collegeId.toString()) {
+              console.warn(`[HIJACK PREVENTED] Student ${email} belongs to college ${user.collegeId}, but coordinator is from college ${req.user.collegeId}`);
+              continue; // skip this user
+            }
+          }
+
           if (!user) {
             const passwordHash = await bcrypt.hash(row.password || "student123", 10);
             user = await User.create({
@@ -76,6 +100,7 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
               email: email,
               passwordHash,
               role: "student",
+              isSetup: true,
               collegeId: req.user.collegeId,
               branch: row.branch || row.Branch,
               department: row.department || row.Department,
@@ -96,9 +121,110 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
         }
         await batch.save();
         res.json({ message: `Imported ${newStudents.length} students`, students: newStudents });
-      });
+      } catch (err) {
+        console.error("Error processing CSV records:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to process imported student data" });
+        }
+      }
+    });
   } catch (error) {
     console.error(error);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   POST /api/batches/:id/students/single
+// @desc    Provision a single student under a batch (cohort)
+router.post("/:id/students/single", protect, requireRole("coordinator"), async (req, res) => {
+  try {
+    const { name, email, rollNumber, branch, year, cgpa } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and email are required." });
+    }
+
+    const batch = await Batch.findOne({ _id: req.params.id, collegeId: req.user.collegeId });
+    if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+    // Verify user doesn't already exist
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ error: "A user with this email already exists." });
+    }
+
+    // Default password student123
+    const passwordHash = await bcrypt.hash("student123", 10);
+
+    const student = await User.create({
+      name,
+      email,
+      passwordHash,
+      role: "student",
+      isSetup: true,
+      collegeId: req.user.collegeId,
+      branch: branch || batch.branch,
+      section: batch.section,
+      rollNumber,
+      year: year || batch.year,
+      cgpa: cgpa || 0
+    });
+
+    if (!batch.studentIds.includes(student._id)) {
+      batch.studentIds.push(student._id);
+      await batch.save();
+    }
+
+    res.status(201).json(student);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error provisioning student." });
+  }
+});
+
+// @route   PUT /api/batches/students/:id/status
+// @desc    Toggle active status of a student
+router.put("/students/:id/status", protect, requireRole("coordinator"), async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, collegeId: req.user.collegeId, role: "student" });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    student.isActive = !student.isActive;
+    await student.save();
+    
+    res.json(student);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   POST /api/batches/students/:id/send-login
+// @desc    Send login email to student
+router.post("/students/:id/send-login", protect, requireRole("coordinator"), async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.params.id, collegeId: req.user.collegeId, role: "student" });
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    if (student.loginEmailSent) {
+      return res.status(400).json({ error: "Login email already sent." });
+    }
+
+    // Mock sending email - logged to server console
+    console.log("\n=================== DUMMY EMAIL DISPATCH ===================");
+    console.log(`[EMAIL DISPATCH] To: ${student.email}`);
+    console.log("Subject: Welcome to PlaceIQ - Portal Login Details");
+    console.log("Body: Your student account has been created.");
+    console.log(`Access Credentials:`);
+    console.log(`  - Login Link: http://localhost:3000/login`);
+    console.log(`  - Username: ${student.email}`);
+    console.log(`  - Password: student123`);
+    console.log("============================================================\n");
+
+    student.loginEmailSent = true;
+    await student.save();
+    
+    res.json(student);
+  } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
 });

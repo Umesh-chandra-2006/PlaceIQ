@@ -22,6 +22,9 @@ const companySchema = new mongoose.Schema({
     interviewRounds: Number,
     branches: [String]
   }],
+  contactPerson: String,
+  contactEmail: String,
+  contactPhone: String,
   notes: String,
   createdAt: { type: Date, default: Date.now }
 });

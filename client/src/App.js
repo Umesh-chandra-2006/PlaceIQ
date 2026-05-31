@@ -1,34 +1,24 @@
-/**
- * Root App component with role-based routing.
- */
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import Navbar from './components/shared/Navbar';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import SetupAccount from './pages/SetupAccount';
 import CoordinatorApp from './pages/CoordinatorApp';
 import StudentApp from './pages/StudentApp';
 import AdminApp from './pages/AdminApp';
-
-const HomeRedirect = () => {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" />;
-  if (user.role === 'coordinator') return <Navigate to="/coordinator" />;
-  if (user.role === 'student') return <Navigate to="/student" />;
-  if (user.role === 'admin') return <Navigate to="/admin" />;
-  return <Navigate to="/login" />;
-};
+import Landing from './pages/Landing';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <Navbar />
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/setup-account" element={<SetupAccount />} />
           
           <Route 
             path="/coordinator/*" 
@@ -51,13 +41,11 @@ function App() {
           <Route 
             path="/admin/*" 
             element={
-              <ProtectedRoute roles={['admin']}>
+              <ProtectedRoute roles={['admin', 'superadmin']}>
                 <AdminApp />
               </ProtectedRoute>
             } 
           />
-          
-          <Route path="/" element={<HomeRedirect />} />
         </Routes>
       </Router>
     </AuthProvider>

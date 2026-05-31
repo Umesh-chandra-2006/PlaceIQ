@@ -25,6 +25,7 @@ const setupDeadlineReminders = () => {
           .populate("studentId", "email name");
 
         for (const app of applications) {
+          if (!app.studentId) continue;
           const subject = `Reminder: Deadline approaching for ${job.company}`;
           const text = `Hi ${app.studentId.name}, the deadline for ${job.title} at ${job.company} is approaching on ${job.deadline.toDateString()}.`;
           await sendEmail(app.studentId.email, subject, text);

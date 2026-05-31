@@ -85,7 +85,7 @@ router.post("/:id/read", protect, async (req, res) => {
   try {
     if (req.user.role !== "student") return res.status(403).json({ error: "Only students can mark as read" });
 
-    const announcement = await Announcement.findById(req.params.id);
+    const announcement = await Announcement.findOne({ _id: req.params.id, collegeId: req.user.collegeId });
     if (!announcement) return res.status(404).json({ error: "Not found" });
 
     if (!announcement.readBy.includes(req.user.id)) {

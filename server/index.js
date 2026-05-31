@@ -9,6 +9,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const setupDeadlineReminders = require("./cron/deadlineReminder");
 const setupUrgencyRefresh = require("./cron/urgencyRefresh");
+const setupAutoClose = require("./cron/autoClose");
 require("./cron/autoScrape");
 
 // Initialize Express
@@ -25,21 +26,25 @@ app.use(express.json());
 const authRoutes = require('./routes/auth');
 const jobsRoutes = require('./routes/jobs');
 const appRoutes = require('./routes/applications');
-const scraperRoutes = require('./routes/scraper');
 const batchesRoutes = require('./routes/batches');
 const studentsRoutes = require('./routes/students');
 const analyticsRoutes = require('./routes/analytics');
 const announcementsRoutes = require('./routes/announcements');
+const adminRoutes = require('./routes/admin');
+const notificationsRoutes = require('./routes/notifications');
+const companiesRoutes = require('./routes/companies');
 
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/applications', appRoutes);
-app.use('/api/scraper', scraperRoutes);
 app.use('/api/batches', batchesRoutes);
 app.use('/api/students', studentsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/announcements', announcementsRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/companies', companiesRoutes);
 
 // Serve static files from uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -52,6 +57,7 @@ app.get("/", (req, res) => {
 // Initialize Cron Jobs
 setupDeadlineReminders();
 setupUrgencyRefresh();
+setupAutoClose();
 
 // Start Server
 const PORT = process.env.PORT || 5000;

@@ -12,8 +12,8 @@ const connectDB = async () => {
     });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1);
+    console.error(`Database initial connection error: ${error.message}`);
+    console.log("Node server will stay alive and attempt reconnection.");
   }
 };
 

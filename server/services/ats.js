@@ -54,7 +54,7 @@ ${resumeText}
 
   try {
     const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
-      model: "nvidia/nemotron-4-340b-instruct", // High quality model for JSON
+      model: "google/gemini-2.5-flash", // High quality model for JSON
       messages: [
         { role: "user", content: prompt }
       ]
@@ -73,7 +73,33 @@ ${resumeText}
     
     return JSON.parse(jsonMatch[0]);
   } catch (error) {
-    console.error("AI Review Error:", error.response?.data || error.message);
-    throw new Error("Failed to perform AI review");
+    console.warn("OpenRouter AI Review failed, falling back to rule-based analysis:", error.response?.data || error.message);
+    
+    try {
+      const score = exports.calculateRuleBasedScore(resumeText, jobDescription);
+      const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+      
+      const jdKeywords = keywordExtractor.extract(jobDescription, {
+        language: "english",
+        remove_digits: true,
+        return_changed_case: true,
+        remove_duplicates: true
+      });
+      
+      const resumeLower = resumeText.toLowerCase();
+      const matchedKeywords = jdKeywords.filter(k => resumeLower.includes(k.toLowerCase())).slice(0, 8);
+      const missingKeywords = jdKeywords.filter(k => !resumeLower.includes(k.toLowerCase())).slice(0, 8);
+      
+      return {
+        score,
+        grade,
+        matchedKeywords,
+        missingKeywords,
+        suggestion: "AI API limit reached. Resorted to dynamic rule-based keyword match analysis. Expand your resume with the missing keywords to improve the score."
+      };
+    } catch (fallbackError) {
+      console.error("Critical fallback calculation failure:", fallbackError);
+      throw new Error("Failed to perform ATS review");
+    }
   }
 };

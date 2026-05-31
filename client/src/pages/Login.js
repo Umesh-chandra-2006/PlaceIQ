@@ -1,10 +1,7 @@
-/**
- * Login page component.
- */
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Lock, Mail, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -23,7 +20,7 @@ const Login = () => {
       const user = await login(email, password);
       if (user.role === 'coordinator') navigate('/coordinator');
       else if (user.role === 'student') navigate('/student');
-      else if (user.role === 'admin') navigate('/admin');
+      else if (user.role === 'admin' || user.role === 'superadmin') navigate('/admin');
       else navigate('/');
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid credentials');
@@ -33,83 +30,86 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-3xl font-extrabold text-primary-600">PlaceIQ</h2>
-        <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">Sign in to your account</h2>
+    <div className="min-h-screen bg-[#09090b] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-primary-500/20 selection:text-primary-300 relative overflow-hidden">
+      {/* Decorative Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary-500/5 blur-[120px] rounded-full pointer-events-none"></div>
+
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
+        <div className="mx-auto w-10 h-10 bg-primary-500 rounded flex items-center justify-center shadow-lg shadow-primary-500/25 mb-4 hover:scale-105 transition-transform duration-300">
+          <span className="text-zinc-950 font-black text-lg tracking-tighter">P</span>
+        </div>
+        <h2 className="text-3xl font-extrabold text-white font-mono tracking-tight">PlaceIQ</h2>
+        <p className="mt-2 text-sm text-zinc-400">Sign in to access your placement dashboard</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10">
+        <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-lg py-8 px-6 sm:px-10 shadow-2xl backdrop-blur-md">
+          <form className="space-y-5" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-2.5 rounded text-xs font-semibold leading-relaxed">
                 {error}
               </div>
             )}
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
-              <div className="mt-1 relative">
+              <label className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-1.5">Email Address</label>
+              <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-4 w-4 text-zinc-500" />
                 </div>
                 <input
-                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full pl-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                  placeholder="you@college.edu"
+                  type="email" 
+                  required 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-zinc-950/80 border border-zinc-800 rounded pl-10 pr-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors font-sans"
+                  placeholder="you@domain.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <div className="mt-1 relative">
+              <label className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-1.5">Password</label>
+              <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                  <Lock className="h-4 w-4 text-zinc-500" />
                 </div>
                 <input
-                  type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full pl-10 pr-10 px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+                  type={showPassword ? 'text' : 'password'} 
+                  required 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-zinc-950/80 border border-zinc-800 rounded pl-10 pr-10 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors font-mono"
                   placeholder="••••••••"
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-500 focus:outline-none focus:text-gray-500"
+                    className="text-zinc-500 hover:text-zinc-300 focus:outline-none"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" aria-hidden="true" />
-                    ) : (
-                      <Eye className="h-5 w-5" aria-hidden="true" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
             </div>
 
-            <div>
+            <div className="pt-2">
               <button
-                type="submit" disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-primary-500 hover:bg-primary-400 text-zinc-950 font-bold py-2 rounded text-sm transition-all duration-200 shadow-md shadow-primary-500/10 hover:shadow-primary-500/20 active:scale-95 flex items-center justify-center gap-1.5"
               >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : 'Sign in'}
+                {loading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Sign In'}
               </button>
             </div>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">New to PlaceIQ?</span>
-              </div>
-            </div>
-            <div className="mt-6 text-center">
-              <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
-                Create an account
+          <div className="mt-6 border-t border-zinc-800/80 pt-6">
+            <div className="text-center text-xs">
+              <span className="text-zinc-500 font-medium">New to PlaceIQ? </span>
+              <Link to="/register" className="font-semibold text-primary-400 hover:text-primary-300 transition-colors">
+                Registration details
               </Link>
             </div>
           </div>

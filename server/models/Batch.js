@@ -11,4 +11,6 @@ const batchSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+batchSchema.index({ collegeId: 1 });
+
 module.exports = mongoose.model("Batch", batchSchema);

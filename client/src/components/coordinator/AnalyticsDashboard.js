@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
-import { BarChart3, AlertTriangle, TrendingUp, Users, Target, Activity, Loader2 } from 'lucide-react';
+import { Loader2, TrendingUp, AlertTriangle, CheckCircle, Users, FileText } from 'lucide-react';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Legend, PieChart, Pie, Cell
+} from 'recharts';
 
 const AnalyticsDashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -8,7 +12,8 @@ const AnalyticsDashboard = () => {
     overview: null,
     atRisk: [],
     atsDistribution: [],
-    activity: []
+    activity: [],
+    branch: []
   });
 
   useEffect(() => {
@@ -18,42 +23,93 @@ const AnalyticsDashboard = () => {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      const [overviewRes, atRiskRes, atsRes, activityRes] = await Promise.all([
+      const [overviewRes, atRiskRes, atsRes, activityRes, branchRes] = await Promise.all([
         axios.get('/analytics/overview'),
         axios.get('/analytics/at-risk'),
         axios.get('/analytics/ats-distribution'),
-        axios.get('/analytics/activity-heatmap')
+        axios.get('/analytics/activity-heatmap'),
+        axios.get('/analytics/branch')
       ]);
 
       setData({
         overview: overviewRes.data,
         atRisk: atRiskRes.data,
         atsDistribution: atsRes.data,
-        activity: activityRes.data
+        activity: activityRes.data,
+        branch: branchRes.data
       });
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching analytics:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary-600" size={40} /></div>;
+  const handleExportSummary = () => {
+    let csvContent = "";
+    
+    // Overview Section
+    csvContent += "PLACEMENT PERFORMANCE SUMMARY\n";
+    csvContent += `Generated On,${new Date().toLocaleString()}\n`;
+    csvContent += `Placement Rate,${data.overview?.placementRate ? data.overview.placementRate.toFixed(1) : '0.0'}%\n`;
+    csvContent += `Total Active Students,${data.overview?.activeCount || 0}\n`;
+    csvContent += `Students Placed,${data.overview?.placedStudents || 0}\n`;
+    csvContent += `At-Risk Students Count,${data.atRisk.length || 0}\n\n`;
+    
+    // Branch Performance Section
+    csvContent += "BRANCH-WISE PERFORMANCE\n";
+    csvContent += "Branch,Total Students,Placed Students,Placement Rate (%)\n";
+    branchChartData.forEach(b => {
+      csvContent += `"${b.branch}",${b.Total},${b.Placed},${b['Placement Rate (%)']}\n`;
+    });
+    csvContent += "\n";
+    
+    // At-Risk Students Section
+    csvContent += "FLAGGED AT-RISK STUDENTS\n";
+    csvContent += "Student Name,Branch,CGPA,Active Backlogs,Applications Submitted,Risk Reason(s)\n";
+    data.atRisk.forEach(student => {
+      let riskFlags = [];
+      if (student.cgpa < 6.5) riskFlags.push("Low CGPA");
+      if (student.activeBacklogs > 0) riskFlags.push("Active Backlogs");
+      if (student.applicationCount === 0) riskFlags.push("Zero Applications");
+      csvContent += `"${student.name}","${student.branch}",${student.cgpa},${student.activeBacklogs},${student.applicationCount},"${riskFlags.join(' | ')}"\n`;
+    });
 
-  // Process ATS Distribution for Chart
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `placement_analytics_summary_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center p-8 h-[60vh] items-center">
+        <Loader2 className="animate-spin text-primary-500" size={32} />
+      </div>
+    );
+  }
+
+  // Process User Composition Pie Chart Data
+  const compositionData = [
+    { name: 'Active Students', value: data.overview?.activeCount || 0 },
+    { name: 'Deactivated', value: data.overview?.deactivatedCount || 0 }
+  ];
+  const PIE_COLORS = ['#6366f1', '#27272a']; // Indigo for active, zinc-800 for deactivated
+
+  // Process ATS Distribution Bar Chart Data
   const atsBuckets = ['0-20', '21-40', '41-60', '61-80', '81-100'];
-  let maxAtsCount = 1;
-  const atsCounts = atsBuckets.map((bucket, i) => {
+  const atsChartData = atsBuckets.map((bucket, i) => {
     const boundaryStart = i * 20;
     const match = data.atsDistribution.find(d => d._id === boundaryStart) || { count: 0 };
-    if (match.count > maxAtsCount) maxAtsCount = match.count;
-    return match.count;
+    return { range: bucket, Applications: match.count };
   });
 
-  // Process Activity Heatmap for Chart
-  let maxActivity = 1;
+  // Process Application Activity over 30 Days (Area Chart)
   const activityMap = new Map();
-  // Fill past 30 days with 0
   for (let i = 29; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -61,136 +117,255 @@ const AnalyticsDashboard = () => {
   }
   data.activity.forEach(item => {
     activityMap.set(item._id, item.count);
-    if (item.count > maxActivity) maxActivity = item.count;
   });
-  const activityBars = Array.from(activityMap.entries());
+  const activityChartData = Array.from(activityMap.entries()).map(([date, count]) => ({
+    date: date && !isNaN(new Date(date)) ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A',
+    Applications: count
+  }));
+
+  // Process Branch Roster/Placement Data (Bar Chart)
+  const branchChartData = data.branch.map(b => ({
+    branch: b._id || 'Unknown',
+    Total: b.total,
+    Placed: b.placed,
+    'Placement Rate (%)': b.total > 0 ? Math.round((b.placed / b.total) * 100) : 0
+  }));
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-8 animate-fadeIn">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2"><BarChart3 size={28}/> Advanced Analytics</h1>
-        <p className="text-gray-500">Placement insights and pipeline metrics</p>
+    <div className="space-y-6 text-zinc-100 pb-12">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h1 className="text-xl font-medium tracking-tight">Analytics Dashboard</h1>
+          <p className="text-xs text-zinc-550 font-mono mt-0.5">Performance indices and flagged cohorts</p>
+        </div>
+        <button
+          onClick={handleExportSummary}
+          className="bg-primary-500 hover:bg-primary-400 text-zinc-950 font-bold px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5 shadow-md"
+        >
+          <FileText size={13} /> Export Summary (CSV)
+        </button>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-          <div className="text-gray-500 font-medium text-sm flex items-center gap-2"><Users size={16}/> Total Students</div>
-          <div className="text-3xl font-black text-gray-800 mt-2">{data.overview?.totalStudents || 0}</div>
+      {/* Top Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[10px] uppercase font-mono text-zinc-500 tracking-wider">Placement Rate</span>
+            <h3 className="text-2xl font-semibold font-mono text-primary-500 mt-1">
+              {data.overview?.placementRate ? data.overview.placementRate.toFixed(1) : '0.0'}%
+            </h3>
+          </div>
+          <div className="p-3 bg-primary-500/10 text-primary-500 rounded-lg">
+            <TrendingUp size={20} />
+          </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-          <div className="text-gray-500 font-medium text-sm flex items-center gap-2"><Target size={16}/> Placed Students</div>
-          <div className="text-3xl font-black text-primary-600 mt-2">{data.overview?.placedStudents || 0}</div>
+
+        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[10px] uppercase font-mono text-zinc-500 tracking-wider">Total Active Students</span>
+            <h3 className="text-2xl font-semibold font-mono text-zinc-100 mt-1">
+              {data.overview?.activeCount || 0}
+            </h3>
+          </div>
+          <div className="p-3 bg-zinc-800 text-zinc-400 rounded-lg">
+            <Users size={20} />
+          </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-          <div className="text-gray-500 font-medium text-sm flex items-center gap-2"><TrendingUp size={16}/> Placement Rate</div>
-          <div className="text-3xl font-black text-green-600 mt-2">{data.overview?.placementRate?.toFixed(1) || 0}%</div>
+
+        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg flex items-center justify-between shadow-lg">
+          <div>
+            <span className="text-[10px] uppercase font-mono text-zinc-500 tracking-wider">Students Placed</span>
+            <h3 className="text-2xl font-semibold font-mono text-indigo-400 mt-1">
+              {data.overview?.placedStudents || 0}
+            </h3>
+          </div>
+          <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-lg">
+            <CheckCircle size={20} />
+          </div>
         </div>
-        <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-red-100 flex flex-col justify-between">
-          <div className="text-red-700 font-medium text-sm flex items-center gap-2"><AlertTriangle size={16}/> At-Risk Students</div>
-          <div className="text-3xl font-black text-red-600 mt-2">{data.atRisk?.length || 0}</div>
+
+        <div className="bg-zinc-950 border border-zinc-800 p-4 rounded-lg flex items-center justify-between shadow-lg border-red-500/20">
+          <div>
+            <span className="text-[10px] uppercase font-mono text-zinc-500 tracking-wider">At-Risk Students</span>
+            <h3 className="text-2xl font-semibold font-mono text-red-400 mt-1">
+              {data.atRisk.length}
+            </h3>
+          </div>
+          <div className="p-3 bg-red-500/10 text-red-400 rounded-lg">
+            <AlertTriangle size={20} />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* ATS Distribution Chart (CSS-based) */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-6"><Target size={20}/> ATS Match Distribution</h2>
-          <p className="text-xs text-gray-500 mb-6">How well are student resumes matching job descriptions across all applications?</p>
-          <div className="flex items-end justify-around h-48 border-b border-gray-200 pb-2 relative">
-            {atsCounts.map((count, i) => (
-              <div key={i} className="flex flex-col items-center w-1/6 group">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs py-1 px-2 rounded mb-2 absolute" style={{ bottom: `${(count / maxAtsCount) * 100}%` }}>{count}</div>
-                <div 
-                  className="w-full bg-primary-500 rounded-t-md hover:bg-primary-600 transition-all" 
-                  style={{ height: `${(count / maxAtsCount) * 100}%`, minHeight: count > 0 ? '4px' : '0' }}
-                ></div>
-                <div className="text-xs text-gray-500 mt-2 font-medium">{atsBuckets[i]}</div>
-              </div>
-            ))}
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* User Status Composition Donut */}
+        <div className="border border-zinc-800 rounded bg-zinc-950 p-4 flex flex-col justify-between shadow-lg">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 font-mono mb-4">Roster Distribution</span>
+          <div className="h-48 flex items-center justify-center relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={compositionData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={70}
+                  paddingAngle={4}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {compositionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px', fontSize: '11px', color: '#f4f4f5' }}
+                  itemStyle={{ color: '#f4f4f5' }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute flex flex-col items-center justify-center">
+              <span className="text-2xl font-bold font-mono text-zinc-200">
+                {(data.overview?.activeCount || 0) + (data.overview?.deactivatedCount || 0)}
+              </span>
+              <span className="text-[9px] uppercase font-mono text-zinc-500 tracking-widest mt-0.5">Total Users</span>
+            </div>
           </div>
-          <div className="text-center text-xs text-gray-400 mt-2">ATS Score Range (%)</div>
+          <div className="flex justify-center gap-6 text-xs mt-2 font-mono">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full" />
+              <span className="text-zinc-400">Active ({data.overview?.activeCount || 0})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 bg-zinc-800 rounded-full" />
+              <span className="text-zinc-500">Deactivated ({data.overview?.deactivatedCount || 0})</span>
+            </div>
+          </div>
         </div>
 
-        {/* Activity Heatmap (CSS-based) */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-6"><Activity size={20}/> Application Activity (Last 30 Days)</h2>
-          <p className="text-xs text-gray-500 mb-6">Daily application volume tracking</p>
-          <div className="flex items-end justify-between h-48 border-b border-gray-200 pb-2">
-            {activityBars.map(([date, count], i) => (
-              <div key={date} className="w-1.5 md:w-2 mx-0.5 group relative flex flex-col justify-end h-full">
-                <div className="hidden group-hover:block absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded z-10 whitespace-nowrap">
-                  {date}: {count}
-                </div>
-                <div 
-                  className={`w-full rounded-t-sm transition-all ${count > 0 ? 'bg-indigo-500' : 'bg-gray-100'}`} 
-                  style={{ height: count > 0 ? `${(count / maxActivity) * 100}%` : '2px', minHeight: count > 0 ? '4px' : '2px' }}
-                ></div>
-              </div>
-            ))}
+        {/* ATS score match distribution */}
+        <div className="border border-zinc-800 rounded bg-zinc-950 p-4 flex flex-col shadow-lg lg:col-span-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 font-mono mb-4">ATS Match score Distribution</span>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={atsChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <XAxis dataKey="range" stroke="#71717a" fontSize={10} fontClassName="font-mono" />
+                <YAxis stroke="#71717a" fontSize={10} fontClassName="font-mono" allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px', fontSize: '11px', color: '#f4f4f5' }}
+                  cursor={{ fill: '#27272a', opacity: 0.2 }}
+                />
+                <Bar dataKey="Applications" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={45} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="flex justify-between text-xs text-gray-400 mt-2">
-            <span>30 days ago</span>
-            <span>Today</span>
+        </div>
+
+        {/* 30-Day Activity Heatmap/Line Chart */}
+        <div className="border border-zinc-800 rounded bg-zinc-950 p-4 flex flex-col shadow-lg lg:col-span-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 font-mono mb-4">Application Activity (Last 30 Days)</span>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={activityChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorApps" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                <XAxis dataKey="date" stroke="#71717a" fontSize={10} fontClassName="font-mono" />
+                <YAxis stroke="#71717a" fontSize={10} fontClassName="font-mono" allowDecimals={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px', fontSize: '11px', color: '#f4f4f5' }}
+                />
+                <Area type="monotone" dataKey="Applications" stroke="#10b981" fillOpacity={1} fill="url(#colorApps)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
+        </div>
+
+        {/* Branch-wise Roster Performance */}
+        <div className="border border-zinc-800 rounded bg-zinc-950 p-4 flex flex-col shadow-lg lg:col-span-3">
+          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400 font-mono mb-4">Branch Performance & Placements</span>
+          {branchChartData.length === 0 ? (
+            <div className="text-center py-8 text-xs text-zinc-500 font-mono">0 branches tracked. Ensure cohorts are configured.</div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={branchChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <XAxis dataKey="branch" stroke="#71717a" fontSize={10} fontClassName="font-mono" />
+                  <YAxis stroke="#71717a" fontSize={10} fontClassName="font-mono" />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '6px', fontSize: '11px', color: '#f4f4f5' }}
+                  />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '10px', fontFamily: 'monospace' }} />
+                  <Bar dataKey="Total" fill="#3f3f46" name="Total Students" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                  <Bar dataKey="Placed" fill="#6366f1" name="Placed Students" radius={[4, 4, 0, 0]} maxBarSize={30} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
       {/* At-Risk Table */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2 mb-4"><AlertTriangle size={20} className="text-red-500"/> At-Risk Students Action List</h2>
-        <p className="text-sm text-gray-500 mb-4">Students flagged with high active backlogs, low CGPA (&lt;6.5), or 0 applications submitted.</p>
+      <div className="border border-zinc-800 rounded overflow-hidden bg-zinc-950 shadow-lg">
+        <div className="px-4 py-2 border-b border-zinc-800 bg-zinc-900/50 flex items-center justify-between">
+          <span className="text-xs font-semibold text-red-500 uppercase tracking-widest font-mono">Action Required: At-Risk Students</span>
+          <span className="text-xs font-mono text-zinc-500">{data.atRisk.length} records</span>
+        </div>
         
         {data.atRisk.length === 0 ? (
-          <div className="text-center py-10 bg-gray-50 rounded-lg text-gray-500">
-            No at-risk students found! 🎉
+          <div className="p-8 text-center text-zinc-500 text-sm font-mono">
+            0 at-risk students flagged.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 text-xs uppercase font-semibold">
-                <tr>
-                  <th className="px-4 py-3 rounded-tl-lg">Student Name</th>
-                  <th className="px-4 py-3">Branch</th>
-                  <th className="px-4 py-3">CGPA</th>
-                  <th className="px-4 py-3">Backlogs</th>
-                  <th className="px-4 py-3">Applications</th>
-                  <th className="px-4 py-3 rounded-tr-lg">Risk Factor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.atRisk.map(student => {
-                  let risk = [];
-                  if (student.cgpa < 6.5) risk.push("Low CGPA");
-                  if (student.activeBacklogs > 0) risk.push("Backlogs");
-                  if (student.applicationCount === 0) risk.push("0 Applications");
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-zinc-950 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500 font-medium font-mono">
+              <tr>
+                <th className="px-4 py-2 font-medium">Student</th>
+                <th className="px-4 py-2 font-medium">Branch</th>
+                <th className="px-4 py-2 font-medium text-right">CGPA</th>
+                <th className="px-4 py-2 font-medium text-right">Backlogs</th>
+                <th className="px-4 py-2 font-medium text-right">Applications</th>
+                <th className="px-4 py-2 font-medium">Status Flags</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/50 font-mono text-xs">
+              {data.atRisk.map(student => {
+                let risk = [];
+                if (student.cgpa < 6.5) risk.push("CGPA");
+                if (student.activeBacklogs > 0) risk.push("Backlogs");
+                if (student.applicationCount === 0) risk.push("0 Apps");
 
-                  return (
-                    <tr key={student._id} className="hover:bg-red-50/50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-gray-900">
-                        {student.name}
-                        <div className="text-xs text-gray-400 font-normal">{student.email}</div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{student.branch}</td>
-                      <td className={`px-4 py-3 font-bold ${student.cgpa < 6.5 ? 'text-red-600' : 'text-gray-700'}`}>{student.cgpa}</td>
-                      <td className={`px-4 py-3 font-bold ${student.activeBacklogs > 0 ? 'text-red-600' : 'text-gray-700'}`}>{student.activeBacklogs}</td>
-                      <td className={`px-4 py-3 font-bold ${student.applicationCount === 0 ? 'text-red-600' : 'text-gray-700'}`}>{student.applicationCount}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {risk.map((r, i) => (
-                            <span key={i} className="text-[10px] bg-red-100 text-red-700 px-2 py-1 rounded font-bold uppercase">{r}</span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={student._id} className="hover:bg-zinc-900/50 transition-colors">
+                    <td className="px-4 py-2 font-medium text-zinc-200">
+                      {student.name}
+                    </td>
+                    <td className="px-4 py-2 text-zinc-400 text-xs uppercase tracking-wider">{student.branch}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${student.cgpa < 6.5 ? 'text-red-500' : 'text-zinc-300'}`}>{student.cgpa}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${student.activeBacklogs > 0 ? 'text-red-500' : 'text-zinc-300'}`}>{student.activeBacklogs}</td>
+                    <td className={`px-4 py-2 text-right font-mono ${student.applicationCount === 0 ? 'text-red-500' : 'text-zinc-300'}`}>{student.applicationCount}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex gap-1.5">
+                        {risk.map((r, i) => (
+                          <span key={i} className="text-[9px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-mono uppercase font-bold tracking-wider">{r}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
-
     </div>
   );
 };

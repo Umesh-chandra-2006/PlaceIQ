@@ -1,15 +1,12 @@
-/**
- * Form component to create or edit job listings.
- */
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from '../../api/axios';
-import { ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Briefcase, GraduationCap } from 'lucide-react';
 
 const JobForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
-  const [summarizing, setSummarizing] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     company: '',
@@ -33,6 +30,46 @@ const JobForm = () => {
     },
     status: 'active'
   });
+
+  useEffect(() => {
+    if (location.state?.scrapedData) {
+      const { title, company, description, ctc, location: loc } = location.state.scrapedData;
+      setFormData(prev => ({
+        ...prev,
+        title: title || prev.title,
+        company: company || prev.company,
+        description: description || prev.description,
+        ctc: ctc || prev.ctc,
+        location: loc || prev.location
+      }));
+    }
+  }, [location.state]);
+
+  const applyTemplate = (type) => {
+    if (type === 'job') {
+      setFormData(prev => ({
+        ...prev,
+        jobType: 'fulltime',
+        eligibility: {
+          ...prev.eligibility,
+          minCgpa: 7.5,
+          maxActiveBacklogs: 0,
+          batchYears: '2026'
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        jobType: 'internship',
+        eligibility: {
+          ...prev.eligibility,
+          minCgpa: 6.5,
+          maxActiveBacklogs: 2,
+          batchYears: '2027'
+        }
+      }));
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,16 +102,8 @@ const JobForm = () => {
       };
       const { data: job } = await axios.post('/jobs', payload);
       
-      // Automatically trigger AI summarization after posting
       if (formData.description) {
-        setSummarizing(true);
-        try {
-          await axios.post(`/jobs/${job._id}/summarise`);
-        } catch (err) {
-          console.error("AI Summarization failed", err);
-        } finally {
-          setSummarizing(false);
-        }
+        axios.post(`/jobs/${job._id}/summarise`).catch(console.error); // Fire and forget
       }
       
       navigate('/coordinator/jobs');
@@ -86,129 +115,145 @@ const JobForm = () => {
   };
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6">
-        <ArrowLeft size={20} /> Back to Jobs
+    <div className="max-w-4xl mx-auto text-zinc-100">
+      <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 mb-6 transition-colors">
+        <ArrowLeft size={16} /> Back
       </button>
 
-      <h1 className="text-2xl font-bold mb-8">Post New Job Listing</h1>
+      <h1 className="text-xl font-medium tracking-tight mb-6">Post New Listing</h1>
+
+      <div className="flex gap-4 mb-6">
+        <button 
+          type="button"
+          onClick={() => applyTemplate('job')}
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors"
+        >
+          <Briefcase size={18} className="text-primary-500" />
+          <div className="text-left">
+            <div className="text-sm font-medium">Standard Job Template</div>
+            <div className="text-xs text-zinc-500">Min 7.5 CGPA, 0 Active Backlogs</div>
+          </div>
+        </button>
+        <button 
+          type="button"
+          onClick={() => applyTemplate('internship')}
+          className="flex-1 flex items-center justify-center gap-2 py-3 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 transition-colors"
+        >
+          <GraduationCap size={18} className="text-emerald-500" />
+          <div className="text-left">
+            <div className="text-sm font-medium">Internship Template</div>
+            <div className="text-xs text-zinc-500">Min 6.5 CGPA, Allows 2 Backlogs</div>
+          </div>
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-zinc-950 border border-zinc-800 rounded p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-2 md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Job Title</label>
             <input 
               required name="title" value={formData.title} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="e.g. Software Engineer"
             />
           </div>
           <div className="col-span-2 md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Company</label>
             <input 
               required name="company" value={formData.company} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="e.g. Google"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Description</label>
             <textarea 
               required name="description" value={formData.description} onChange={handleChange} rows="6"
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="Paste the full job description here..."
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700 resize-y"
+              placeholder="Paste raw JD..."
             ></textarea>
           </div>
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">CTC (Package)</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">CTC</label>
             <input 
               name="ctc" value={formData.ctc} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="e.g. 12 LPA"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
+              placeholder="12 LPA"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Location</label>
             <input 
               name="location" value={formData.location} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="e.g. Bangalore / Remote"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
+              placeholder="Bangalore"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Deadline</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Deadline</label>
             <input 
               type="date" name="deadline" value={formData.deadline} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Min CGPA</label>
+            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min CGPA</label>
             <input 
               type="number" step="0.1" name="eligibility.minCgpa" value={formData.eligibility.minCgpa} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
+              className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Max Active Backlogs</label>
-            <input 
-              type="number" name="eligibility.maxActiveBacklogs" value={formData.eligibility.maxActiveBacklogs} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Min 10th %</label>
-            <input 
-              type="number" name="eligibility.minTenthPercent" value={formData.eligibility.minTenthPercent} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Min 12th %</label>
-            <input 
-              type="number" name="eligibility.minTwelfthPercent" value={formData.eligibility.minTwelfthPercent} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Branches (comma separated)</label>
-            <input 
-              type="text" name="eligibility.branches" value={formData.eligibility.branches} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="e.g. CSE, ECE"
-            />
-          </div>
-          <div className="col-span-2 md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Departments</label>
-            <input 
-              type="text" name="eligibility.departments" value={formData.eligibility.departments} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="e.g. Engineering, Management"
-            />
-          </div>
-          <div className="col-span-2 md:col-span-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Sections</label>
-            <input 
-              type="text" name="eligibility.sections" value={formData.eligibility.sections} onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="e.g. A, B"
-            />
+          <div className="col-span-2 border-t border-zinc-800 my-2 pt-4">
+            <h3 className="text-sm font-medium text-zinc-300 mb-4">Eligibility Filters</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Max Active Backlogs</label>
+                <input 
+                  type="number" name="eligibility.maxActiveBacklogs" value={formData.eligibility.maxActiveBacklogs} onChange={handleChange}
+                  className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 10th %</label>
+                  <input 
+                    type="number" name="eligibility.minTenthPercent" value={formData.eligibility.minTenthPercent} onChange={handleChange}
+                    className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 12th %</label>
+                  <input 
+                    type="number" name="eligibility.minTwelfthPercent" value={formData.eligibility.minTwelfthPercent} onChange={handleChange}
+                    className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Target Branches</label>
+                <input 
+                  type="text" name="eligibility.branches" value={formData.eligibility.branches} onChange={handleChange}
+                  className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
+                  placeholder="CSE, ECE"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-end gap-3">
           <button 
             type="button" onClick={() => navigate(-1)}
-            className="px-6 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+            className="px-4 py-1.5 border border-zinc-700 rounded text-sm font-medium text-zinc-300 hover:bg-zinc-900 transition-colors"
           >
             Cancel
           </button>
           <button 
             type="submit" disabled={loading}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-1.5 bg-primary-500 text-zinc-950 rounded text-sm font-medium hover:bg-primary-400 disabled:opacity-50 flex items-center gap-2 transition-colors"
           >
-            {loading && <Loader2 className="animate-spin" size={18} />}
-            Post Job
+            {loading ? <Loader2 className="animate-spin" size={16} /> : 'Post Listing'}
           </button>
         </div>
       </form>

@@ -4,7 +4,7 @@ const Job = require("../models/Job");
 const College = require("../models/College");
 const User = require("../models/User");
 const { scrapeUnstop } = require("../services/scraper");
-const { sendMail } = require("../services/notify");
+const { sendEmail } = require("../services/notify");
 
 const runAutoScrape = async () => {
   console.log("[CRON] Starting daily auto-scrape...");
@@ -51,11 +51,11 @@ const runAutoScrape = async () => {
       if (totalDrafts >= BATCH_THRESHOLD) {
         const coordinators = await User.find({ collegeId: collegeIdStr, role: "coordinator" });
         for (const coord of coordinators) {
-          await sendMail({
-            to: coord.email,
-            subject: "PlaceIQ: New Job Drafts Pending Review",
-            text: `Hello ${coord.name},\n\nYou have ${totalDrafts} scraped job drafts pending your review on the PlaceIQ dashboard. Please log in to publish them to students.\n\nPlaceIQ System`
-          });
+          await sendEmail(
+            coord.email,
+            "PlaceIQ: New Job Drafts Pending Review",
+            `Hello ${coord.name},\n\nYou have ${totalDrafts} scraped job drafts pending your review on the PlaceIQ dashboard. Please log in to publish them to students.\n\nPlaceIQ System`
+          );
         }
         console.log(`[CRON] Batch email sent to coordinators of college ${collegeIdStr} for ${totalDrafts} drafts.`);
       }
