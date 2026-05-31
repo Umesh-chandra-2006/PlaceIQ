@@ -7,9 +7,17 @@ const instance = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
 });
 
-// Add a request interceptor to include the JWT token
+// Add a request interceptor to include the JWT token and format API URLs
 instance.interceptors.request.use(
   (config) => {
+    // Ensure baseURL ends with a slash and config.url does not have a leading slash
+    if (config.baseURL && !config.baseURL.endsWith('/')) {
+      config.baseURL += '/';
+    }
+    if (config.url && config.url.startsWith('/')) {
+      config.url = config.url.substring(1);
+    }
+
     const user = JSON.parse(localStorage.getItem('user'));
     if (user && user.token) {
       config.headers.Authorization = `Bearer ${user.token}`;
