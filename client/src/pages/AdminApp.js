@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users } from 'lucide-react';
+import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users, Trash2 } from 'lucide-react';
 import Sidebar from '../components/shared/Sidebar';
 
 const AdminApp = () => {
@@ -158,6 +158,18 @@ const AdminApp = () => {
     }
   };
 
+  const handleDeleteCollege = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}? This will suspend all its users and cannot be undone.`)) {
+      try {
+        await axios.delete(`/admin/colleges/${id}`);
+        alert("College deleted successfully.");
+        fetchColleges();
+      } catch (error) {
+        alert(error.response?.data?.error || "Failed to delete college.");
+      }
+    }
+  };
+
   const addDepartment = () => {
     if (deptInput && !config.departments.includes(deptInput)) {
       setConfig({ ...config, departments: [...config.departments, deptInput.toUpperCase()] });
@@ -259,6 +271,13 @@ const AdminApp = () => {
                             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${college.licenceStatus === 'expired' ? 'bg-red-500 text-zinc-950' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}
                           >
                             EXP
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteCollege(college._id, college.name)}
+                            className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-950/15 border border-red-550/20 hover:bg-red-600 hover:text-zinc-950 text-red-500 transition-all flex items-center gap-0.5"
+                            title="Delete College"
+                          >
+                            <Trash2 size={10} /> DELETE
                           </button>
                         </div>
                       </td>
@@ -474,7 +493,7 @@ const AdminApp = () => {
                   {coordinators.length === 0 ? (
                     <tr><td colSpan="4" className="px-4 py-8 text-center text-zinc-500 font-mono text-xs">No coordinators provisioned yet.</td></tr>
                   ) : coordinators.map((coord) => {
-                    const link = `http://localhost:3000/setup-account?email=${encodeURIComponent(coord.email)}&token=${coord.setupToken}`;
+                    const link = `${window.location.origin}/setup-account?email=${encodeURIComponent(coord.email)}&token=${coord.setupToken}`;
                     return (
                       <tr key={coord._id} className="hover:bg-zinc-900/30 transition-colors">
                         <td className="px-4 py-3 font-semibold text-zinc-200">{coord.name}</td>

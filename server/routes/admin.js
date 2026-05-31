@@ -54,7 +54,9 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
       setupToken
     });
 
-    const setupLink = `http://localhost:3000/setup-account?email=${encodeURIComponent(adminEmail)}&token=${setupToken}`;
+    const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
+    const origin = clientOrigin.replace(/\/$/, "");
+    const setupLink = `${origin}/setup-account?email=${encodeURIComponent(adminEmail)}&token=${setupToken}`;
 
     res.status(201).json({
       college,
@@ -89,7 +91,7 @@ router.put("/colleges/:id/upgrade", protect, requireRole("superadmin"), async (r
 // @route   GET /api/admin/colleges
 router.get("/colleges", protect, requireRole("superadmin"), async (req, res) => {
   try {
-    const colleges = await College.find({});
+    const colleges = await College.find({ isDeleted: { $ne: true } });
     res.json(colleges);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -209,7 +211,9 @@ router.post("/coordinators", protect, requireRole("admin"), async (req, res) => 
       setupToken
     });
 
-    const setupLink = `http://localhost:3000/setup-account?email=${encodeURIComponent(email)}&token=${setupToken}`;
+    const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
+    const origin = clientOrigin.replace(/\/$/, "");
+    const setupLink = `${origin}/setup-account?email=${encodeURIComponent(email)}&token=${setupToken}`;
 
     res.status(201).json({
       coordinator: {
@@ -241,6 +245,27 @@ router.get("/coordinators", protect, requireRole("admin"), async (req, res) => {
     }).select("name email isSetup setupToken");
 
     res.json(coordinators);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/colleges/:id
+// @desc    Soft delete a college and deactivate its users
+router.delete("/colleges/:id", protect, requireRole("superadmin"), async (req, res) => {
+  try {
+    const college = await College.findByIdAndUpdate(
+      req.params.id,
+      { isDeleted: true },
+      { new: true }
+    );
+    if (!college) return res.status(404).json({ error: "College not found" });
+
+    // Deactivate all users belonging to this college
+    const User = require("../models/User");
+    await User.updateMany({ collegeId: req.params.id }, { isActive: false });
+
+    res.json({ message: "College soft deleted successfully", college });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -4,7 +4,8 @@ import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, Briefcase, Users, Megaphone, BarChart3, 
-  LogOut, CheckCircle, User, Sliders, Shield, Menu, X, Building, Bell
+  LogOut, CheckCircle, User, Sliders, Shield, Menu, X, Building, Bell,
+  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -16,6 +17,8 @@ const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true';
   });
+  const [isHovered, setIsHovered] = useState(false);
+  const isExpandedVisually = !isCollapsed || isHovered;
 
   useEffect(() => {
     if (isCollapsed) {
@@ -25,7 +28,8 @@ const Sidebar = () => {
     }
   }, [isCollapsed]);
 
-  const toggleCollapse = () => {
+  const toggleCollapse = (e) => {
+    e.stopPropagation();
     const next = !isCollapsed;
     setIsCollapsed(next);
     localStorage.setItem('sidebar-collapsed', String(next));
@@ -80,9 +84,11 @@ const Sidebar = () => {
   // Determine navigation links based on user role
   let navLinks = [];
   let title = "PlaceIQ";
+  let profilePath = "/";
   
   if (user?.role === 'student') {
     title = "PlaceIQ Student";
+    profilePath = "/student/profile";
     navLinks = [
       { name: 'Job Feed', path: '/student', icon: Briefcase, exact: true },
       { name: 'Application Tracker', path: '/student/tracker', icon: CheckCircle },
@@ -91,6 +97,7 @@ const Sidebar = () => {
     ];
   } else if (user?.role === 'coordinator') {
     title = "PlaceIQ Ops";
+    profilePath = "/coordinator/profile";
     navLinks = [
       { name: 'Overview', path: '/coordinator', icon: LayoutDashboard, exact: true },
       { name: 'Jobs & Listings', path: '/coordinator/jobs', icon: Briefcase },
@@ -104,6 +111,7 @@ const Sidebar = () => {
     }
   } else if (user?.role === 'admin') {
     title = "PlaceIQ Admin";
+    profilePath = "/admin/settings";
     navLinks = [
       { name: 'Overview', path: '/admin', icon: LayoutDashboard, exact: true },
       { name: 'College Settings', path: '/admin/settings', icon: Sliders },
@@ -111,6 +119,7 @@ const Sidebar = () => {
     ];
   } else if (user?.role === 'superadmin') {
     title = "PlaceIQ Super";
+    profilePath = "/admin";
     navLinks = [
       { name: 'Colleges', path: '/admin', icon: Shield, exact: true },
     ];
@@ -152,29 +161,21 @@ const Sidebar = () => {
       )}
 
       {/* Sidebar Container */}
-      <aside className={`fixed inset-y-0 left-0 bg-zinc-950/70 border-r border-zinc-800 flex flex-col text-zinc-300 z-20 transition-all duration-300 ease-out md:translate-x-0 md:m-4 md:h-[calc(100vh-2rem)] md:rounded-2xl md:border md:bg-zinc-950/70 md:backdrop-blur-md md:shadow-2xl ${
+      <aside 
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className={`fixed inset-y-0 left-0 bg-zinc-950/70 border-r border-zinc-800 flex flex-col text-zinc-300 z-20 transition-all duration-300 ease-out md:translate-x-0 md:m-4 md:h-[calc(100vh-2rem)] md:rounded-2xl md:border md:bg-zinc-950/70 md:backdrop-blur-md md:shadow-2xl ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } ${isCollapsed ? 'md:w-20 w-64' : 'w-64'}`}>
-        <div className={`p-4 border-b border-zinc-800 flex items-center ${isCollapsed ? 'flex-col gap-3 justify-center' : 'justify-between'}`}>
+      } ${isExpandedVisually ? 'md:w-64 w-64' : 'w-20'}`}>
+        <div className={`p-4 border-b border-zinc-800 flex items-center ${isExpandedVisually ? 'justify-between' : 'flex-col gap-3 justify-center'}`}>
           <Link to="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
             <div className="w-6 h-6 bg-primary-500 rounded flex items-center justify-center flex-shrink-0">
               <CheckCircle size={14} className="text-zinc-950" />
             </div>
-            {!isCollapsed && <span className="font-bold text-zinc-100 tracking-tight">{title}</span>}
+            {isExpandedVisually && <span className="font-bold text-zinc-100 tracking-tight">{title}</span>}
           </Link>
           
-          <div className={`flex items-center ${isCollapsed ? 'flex-col gap-2.5' : 'gap-2'}`}>
-            {/* Collapse toggle button on desktop */}
-            {user && (
-              <button 
-                onClick={toggleCollapse}
-                className="hidden md:block p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 transition-colors"
-                title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-              >
-                <Sliders size={16} />
-              </button>
-            )}
-            
+          <div className={`flex items-center ${isExpandedVisually ? 'gap-2' : 'flex-col gap-2.5'}`}>
             {/* Bell button on desktop side */}
             {user && (
               <button 
@@ -184,7 +185,7 @@ const Sidebar = () => {
               >
                 <Bell size={16} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-550 rounded-full animate-pulse" />
                 )}
               </button>
             )}
@@ -195,7 +196,7 @@ const Sidebar = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto py-4">
-          {!isCollapsed && <div className="px-3 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">Workspace</div>}
+          {isExpandedVisually && <div className="px-3 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">Workspace</div>}
           <nav className="space-y-1.5 px-2">
             {navLinks.map((link) => {
               const isActive = link.exact 
@@ -208,25 +209,29 @@ const Sidebar = () => {
                   to={link.path}
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center rounded text-sm transition-all duration-200 ${
-                    isCollapsed ? 'justify-center p-2 mx-auto w-10 h-10' : 'gap-2 px-2 py-1.5'
+                    isExpandedVisually ? 'gap-2 px-2 py-1.5' : 'justify-center p-2 mx-auto w-10 h-10'
                   } ${
                     isActive 
                       ? 'bg-zinc-800/50 text-zinc-100 font-medium' 
                       : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                   }`}
-                  title={isCollapsed ? link.name : ""}
+                  title={!isExpandedVisually ? link.name : ""}
                 >
                   <Icon size={16} className={isActive ? 'text-primary-500' : 'text-zinc-500'} />
-                  {!isCollapsed && <span>{link.name}</span>}
+                  {isExpandedVisually && <span>{link.name}</span>}
                 </Link>
               );
             })}
           </nav>
         </div>
 
-        <div className="p-4 border-t border-zinc-800 flex flex-col items-center gap-3">
-          {!isCollapsed ? (
-            <div className="flex items-center justify-between mb-2 px-2 w-full">
+        <div className="p-4 border-t border-zinc-800 flex flex-col items-center gap-3 w-full">
+          {/* User profile link details */}
+          {isExpandedVisually ? (
+            <Link 
+              to={profilePath}
+              className="flex items-center justify-between mb-1 px-2 py-1.5 w-full hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer text-left"
+            >
               <div className="flex flex-col min-w-0 w-full">
                 <span className="text-sm font-medium text-zinc-200 truncate">{user?.name}</span>
                 <span className="text-[10px] font-mono text-zinc-500 truncate" title={user?.email}>{user?.email}</span>
@@ -236,24 +241,40 @@ const Sidebar = () => {
                   </span>
                 )}
               </div>
-            </div>
+            </Link>
           ) : (
-            <div 
-              className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-xs font-bold text-primary-500 border border-zinc-800 cursor-default"
-              title={`${user?.name} (${user?.email})`}
+            <Link 
+              to={profilePath}
+              className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-xs font-bold text-primary-500 border border-zinc-800 hover:bg-zinc-800 hover:border-primary-500/50 transition-all cursor-pointer"
+              title={`View Profile: ${user?.name} (${user?.email})`}
             >
               {user?.name?.charAt(0).toUpperCase() || 'U'}
-            </div>
+            </Link>
           )}
+
+          {/* Collapse toggle button on desktop */}
+          {user && (
+            <button 
+              onClick={toggleCollapse}
+              className={`w-full hidden md:flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-250 hover:bg-zinc-900 rounded transition-colors ${
+                isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
+              }`}
+              title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              {isExpandedVisually && <span>Collapse Sidebar</span>}
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center justify-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
-              isCollapsed ? 'p-2 w-10 h-10 mx-auto' : ''
+            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
+              isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
             }`}
             title="Sign out"
           >
             <LogOut size={16} /> 
-            {!isCollapsed && <span>Sign out</span>}
+            {isExpandedVisually && <span>Sign out</span>}
           </button>
         </div>
       </aside>

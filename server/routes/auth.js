@@ -21,6 +21,12 @@ router.post("/login", async (req, res) => {
       if (user.isActive === false) {
         return res.status(403).json({ error: "Your account has been deactivated. Please contact your administrator." });
       }
+      if (user.collegeId) {
+        const userCollege = await College.findById(user.collegeId);
+        if (userCollege && userCollege.isDeleted === true) {
+          return res.status(403).json({ error: "Your institution account has been suspended or deleted. Please contact support." });
+        }
+      }
       if (!user.isSetup) {
         return res.status(403).json({ error: "Account setup is pending. Please complete account activation using your setup link." });
       }
