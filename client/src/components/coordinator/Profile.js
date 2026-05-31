@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { User, Shield, Building, Award, Loader2, Sparkles } from 'lucide-react';
+import { User, Shield, Building, Award, Loader2 } from 'lucide-react';
 
 const Profile = () => {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const [college, setCollege] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
 
   useEffect(() => {
     const fetchCollege = async () => {
@@ -22,20 +21,6 @@ const Profile = () => {
     };
     fetchCollege();
   }, []);
-
-  const handleUpgrade = async () => {
-    setUpgrading(true);
-    try {
-      const { data } = await axios.post('/admin/upgrade-simulation');
-      alert(data.message);
-      // Reload page/session to apply role changes
-      window.location.reload();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to simulate upgrade.');
-    } finally {
-      setUpgrading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -117,22 +102,7 @@ const Profile = () => {
             </div>
           </div>
 
-          {!isPaid && (
-            <div className="mt-6 pt-4 border-t border-zinc-800 space-y-3">
-              <div className="bg-primary-500/5 border border-primary-500/10 p-3 rounded text-xs text-primary-400/80 leading-relaxed flex items-start gap-2">
-                <Sparkles size={16} className="text-primary-500 mt-0.5 flex-shrink-0" />
-                <span>Simulate upgrading to the Paid tier to unlock unlimited Job postings, ScrapeGraphAI-powered scraping, and Recharts visual analytics.</span>
-              </div>
-              <button
-                onClick={handleUpgrade}
-                disabled={upgrading}
-                className="w-full bg-primary-500 hover:bg-primary-400 text-zinc-950 font-semibold py-2 rounded text-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {upgrading && <Loader2 className="animate-spin" size={12} />}
-                Upgrade College Plan (Simulation)
-              </button>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

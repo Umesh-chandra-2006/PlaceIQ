@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { AlertCircle, Clock } from 'lucide-react';
-import UpgradeBanner from '../shared/UpgradeBanner';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -52,8 +51,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      {user.subRole === 'coordinator_free' && <UpgradeBanner />}
-
       {/* Top Metrics Row */}
       <div className="grid grid-cols-4 gap-px bg-zinc-800 border border-zinc-800 rounded overflow-hidden">
         <div className="bg-zinc-950 p-4 flex flex-col justify-between h-24">

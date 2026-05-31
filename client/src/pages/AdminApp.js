@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import axios from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users, Trash2, MoreVertical } from 'lucide-react';
+import { Loader2, Save, LogOut, Plus, Shield, Globe, Award, Check, Copy, LayoutDashboard, Sliders, Users, Trash2, MoreVertical, Sparkles } from 'lucide-react';
 import Sidebar from '../components/shared/Sidebar';
+import UpgradeBanner from '../components/shared/UpgradeBanner';
 
 const AdminApp = () => {
   const { user, logout } = useAuth();
@@ -42,17 +43,43 @@ const AdminApp = () => {
   // Active dropdown row for colleges list
   const [activeDropdown, setActiveDropdown] = useState(null);
 
+  const [college, setCollege] = useState(null);
+  const [upgradingCollege, setUpgradingCollege] = useState(false);
+
   useEffect(() => {
     if (user.role === 'admin') {
       fetchConfig();
       fetchCoordinators();
       fetchStats();
+      fetchCollege();
     } else if (user.role === 'superadmin') {
       fetchColleges();
     } else {
       setLoading(false);
     }
   }, [user]);
+
+  const fetchCollege = async () => {
+    try {
+      const { data } = await axios.get('/auth/college');
+      setCollege(data);
+    } catch (error) {
+      console.error("Error fetching college details", error);
+    }
+  };
+
+  const handleUpgradeCollege = async () => {
+    setUpgradingCollege(true);
+    try {
+      const { data } = await axios.post('/admin/upgrade-simulation');
+      alert(data.message);
+      window.location.reload();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to simulate upgrade.');
+    } finally {
+      setUpgradingCollege(false);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -228,7 +255,7 @@ const AdminApp = () => {
               {loadingColleges && <Loader2 className="animate-spin text-zinc-500" size={16} />}
             </div>
 
-            <div className="border border-zinc-800 rounded bg-zinc-900/10 overflow-hidden">
+            <div className="border border-zinc-800 rounded bg-zinc-900/10 relative">
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-zinc-900/60 border-b border-zinc-800 text-xs font-mono uppercase text-zinc-400">
                   <tr>
@@ -683,9 +710,10 @@ const AdminApp = () => {
   };
 
   const renderAdminDashboard = () => {
-    const isPaid = stats?.cycle?.collegeId || false;
+    const isPaid = college?.licenceStatus === 'paid';
     return (
       <div className="space-y-6 animate-fadeIn font-sans text-zinc-100">
+        {!isPaid && <UpgradeBanner />}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Institution Dashboard</h1>
           <p className="text-zinc-400 text-sm mt-1">Overview of coordinator management and placement statistics.</p>
@@ -787,7 +815,32 @@ const AdminApp = () => {
               <span className="text-zinc-550 uppercase">System Role:</span>
               <span className="text-primary-500 uppercase font-bold tracking-widest">{user?.role}</span>
             </div>
+            <div className="flex justify-between py-1">
+              <span className="text-zinc-550 uppercase">Access Tier:</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest ${
+                isPaid ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400'
+              }`}>
+                {isPaid ? 'Paid Pro' : 'Free Trial'}
+              </span>
+            </div>
           </div>
+
+          {!isPaid && (
+            <div className="mt-6 pt-4 border-t border-zinc-800 space-y-3">
+              <div className="bg-primary-500/5 border border-primary-500/10 p-3 rounded text-xs text-primary-400/80 leading-relaxed flex items-start gap-2">
+                <Sparkles size={16} className="text-primary-500 mt-0.5 flex-shrink-0" />
+                <span>Simulate upgrading to the Paid tier to unlock unlimited Job postings, ScrapeGraphAI-powered scraping, and Recharts visual analytics.</span>
+              </div>
+              <button
+                onClick={handleUpgradeCollege}
+                disabled={upgradingCollege}
+                className="w-full bg-primary-500 hover:bg-primary-400 text-zinc-950 font-semibold py-2 rounded text-xs transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {upgradingCollege && <Loader2 className="animate-spin" size={12} />}
+                Upgrade College Plan (Simulation)
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

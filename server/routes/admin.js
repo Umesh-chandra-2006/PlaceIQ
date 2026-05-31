@@ -151,7 +151,7 @@ router.put("/college-settings", protect, requireRole("admin"), async (req, res) 
 
 // @route   POST /api/admin/upgrade-simulation
 // @desc    Simulate upgrading a college to the paid plan (developer testing)
-router.post("/upgrade-simulation", protect, requireRole("superadmin"), async (req, res) => {
+router.post("/upgrade-simulation", protect, requireRole("superadmin", "admin"), async (req, res) => {
   try {
     const User = require("../models/User");
     const user = await User.findById(req.user.id);
@@ -165,7 +165,13 @@ router.post("/upgrade-simulation", protect, requireRole("superadmin"), async (re
     college.licenceStatus = "paid";
     await college.save();
 
-    // Dynamically upgrade the coordinator's subRole if applicable
+    // Dynamically upgrade all coordinators of this college to paid subRole
+    await User.updateMany(
+      { collegeId: college._id, role: "coordinator" },
+      { subRole: "coordinator_paid" }
+    );
+
+    // If the upgrading user is a coordinator, update their in-memory session too
     if (user.role === "coordinator") {
       user.subRole = "coordinator_paid";
       await user.save();
