@@ -40,6 +40,7 @@ const Feed = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
             <input 
+              id="job-search-input"
               type="text" placeholder="Search roles or companies..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -58,7 +59,7 @@ const Feed = () => {
           <p className="text-zinc-400 text-sm">0 listings available.</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4" id="job-feed-list">
           {jobs.map(job => (
             <JobCard 
               key={job._id} 

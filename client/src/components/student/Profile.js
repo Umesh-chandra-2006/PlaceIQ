@@ -338,7 +338,7 @@ const Profile = () => {
         </div>
 
         <div className="col-span-1 space-y-6">
-          <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 text-white">
+          <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 text-white" id="ai-quota-card">
             <h2 className="text-sm font-semibold tracking-tight mb-4 flex items-center gap-2">
               <Zap size={16} className="text-primary-400" /> AI Quota
             </h2>
@@ -397,7 +397,7 @@ const Profile = () => {
             </p>
           </div>
 
-          <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800">
+          <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800" id="resume-upload-card">
             <h2 className="text-sm font-semibold tracking-tight text-zinc-200 mb-4 uppercase tracking-wider flex items-center gap-2">Resume</h2>
             {profile.resumeUrl ? (
               <div className="mb-6 p-4 bg-zinc-950 border border-zinc-800 rounded-md">

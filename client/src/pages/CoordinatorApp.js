@@ -12,11 +12,13 @@ import AnalyticsDashboard from '../components/coordinator/AnalyticsDashboard';
 import Profile from '../components/coordinator/Profile';
 import CompaniesManager from '../components/coordinator/CompaniesManager';
 import Sidebar from '../components/shared/Sidebar';
+import OnboardingTour from '../components/shared/OnboardingTour';
 
 const CoordinatorApp = () => {
   return (
     <div className="flex min-h-screen bg-zinc-955 text-zinc-100 selection:bg-primary-500/30 selection:text-primary-100">
       <Sidebar />
+      <OnboardingTour role="coordinator" />
       <div className="flex-1 md:ml-64 pt-16 md:pt-8 p-4 md:p-8">
         <Routes>
           <Route path="/" element={<Dashboard />} />

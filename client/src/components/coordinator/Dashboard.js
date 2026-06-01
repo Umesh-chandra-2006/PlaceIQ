@@ -52,7 +52,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       {/* Top Metrics Row */}
-      <div className="grid grid-cols-4 gap-px bg-zinc-800 border border-zinc-800 rounded overflow-hidden">
+      <div className="grid grid-cols-4 gap-px bg-zinc-800 border border-zinc-800 rounded overflow-hidden" id="coordinator-metrics-row">
         <div className="bg-zinc-950 p-4 flex flex-col justify-between h-24">
           <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Active Jobs</span>
           <span className="text-3xl font-mono text-zinc-100">{stats.activeJobs}</span>
@@ -91,7 +91,7 @@ const Dashboard = () => {
         </div>
 
         {/* Upcoming Deadlines Panel */}
-        <div className="border border-zinc-800 rounded bg-zinc-950 flex flex-col">
+        <div className="border border-zinc-800 rounded bg-zinc-950 flex flex-col" id="coordinator-deadlines-panel">
           <div className="px-4 py-2 border-b border-zinc-800 flex items-center gap-2">
             <Clock size={14} className="text-zinc-500" />
             <span className="text-xs font-medium text-zinc-300">Upcoming Deadlines</span>

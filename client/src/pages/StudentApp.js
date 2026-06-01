@@ -12,6 +12,7 @@ import Profile from '../components/student/Profile';
 import StudentAnnouncements from '../components/student/StudentAnnouncements';
 import { Loader2 } from 'lucide-react';
 import Sidebar from '../components/shared/Sidebar';
+import OnboardingTour from '../components/shared/OnboardingTour';
 
 const StudentApp = () => {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ const StudentApp = () => {
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-100 selection:bg-primary-500/30 selection:text-primary-100">
       {!isOnboardRoute && <Sidebar />}
+      {!isOnboardRoute && <OnboardingTour role="student" />}
       <div className={`flex-1 ${!isOnboardRoute ? 'md:ml-64 pt-16 md:pt-8' : ''} p-4 md:p-8`}>
         <Routes>
           <Route path="/" element={<Feed />} />

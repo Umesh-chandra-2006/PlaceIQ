@@ -40,7 +40,7 @@ const Tracker = () => {
         <p className="text-zinc-400 text-sm mt-1">Track your active applications across stages.</p>
       </div>
 
-      <div className="flex flex-nowrap gap-4 overflow-x-auto pb-6 snap-x">
+      <div className="flex flex-nowrap gap-4 overflow-x-auto pb-6 snap-x" id="application-stages-board">
         {stages.map(stage => (
           <div key={stage.id} className="bg-zinc-900/20 border border-zinc-800/80 rounded-xl p-4 min-w-[290px] w-[290px] shrink-0 snap-start flex flex-col min-h-[500px]">
             <div className="flex items-center justify-between mb-4 px-1 pb-2 border-b border-zinc-800/40">
