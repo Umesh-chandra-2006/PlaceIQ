@@ -269,7 +269,7 @@ const Sidebar = () => {
                 localStorage.removeItem(`has-completed-tour-${user.role}`);
                 window.location.reload();
               }}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-455 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
+              className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
                 isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
               }`}
               title="Restart Tutorial Tour"
@@ -281,7 +281,7 @@ const Sidebar = () => {
 
           <button
             onClick={handleLogout}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-455 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
+            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
               isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
             }`}
             title="Sign out"
