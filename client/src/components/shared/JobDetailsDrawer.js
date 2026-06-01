@@ -4,6 +4,32 @@ import {
   Shield, GraduationCap, Clock, FileText, Check, ChevronDown, Plus, AlertCircle 
 } from 'lucide-react';
 import axios from '../../api/axios';
+import { getFileUrl } from '../../utils/fileUtil';
+
+const renderSuggestionChecklist = (suggestion) => {
+  if (!suggestion) return null;
+  
+  const items = suggestion
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(s => s.trim())
+    .map(s => s.replace(/^[\s-•*]+/, '').replace(/^\d+\.\s*/, '').trim())
+    .filter(s => s.length > 5);
+    
+  if (items.length === 0) {
+    return <p className="text-sm text-zinc-400 leading-relaxed font-sans">{suggestion}</p>;
+  }
+
+  return (
+    <ul className="space-y-2.5 mt-2 text-sm text-zinc-400 font-sans">
+      {items.map((item, idx) => (
+        <li key={idx} className="flex items-start gap-2.5 leading-relaxed">
+          <CheckCircle size={14} className="text-primary-400 mt-1 flex-shrink-0" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) => {
   const [applying, setApplying] = useState(false);
@@ -446,7 +472,7 @@ const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) =
                           )}
                           <div className="flex gap-4 text-xs font-mono">
                             <a 
-                              href={`http://localhost:5001${studentApplication.offerDetails.offerLetterUrl}`} 
+                              href={getFileUrl(studentApplication.offerDetails.offerLetterUrl)} 
                               target="_blank" 
                               rel="noopener noreferrer" 
                               className="text-primary-500 hover:text-primary-400 underline font-semibold flex items-center gap-1.5"
@@ -661,7 +687,7 @@ const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) =
                             <div className="font-sans text-xs">
                               <p className="text-zinc-400 font-mono">Package Offered: <strong className="text-zinc-200">{app.offerDetails.ctc || 'N/A'}</strong></p>
                               <a 
-                                href={`http://localhost:5001${app.offerDetails.offerLetterUrl}`} 
+                                href={getFileUrl(app.offerDetails.offerLetterUrl)} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 className="text-primary-500 hover:text-primary-400 underline font-mono text-[10px] mt-1.5 inline-flex items-center gap-1 font-semibold"
@@ -781,9 +807,9 @@ const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) =
                     </div>
                   </div>
                 )}
-                <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mt-6">
+                <div className="bg-zinc-955 p-4 rounded-lg border border-zinc-800 mt-6">
                   <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider mb-2 font-mono">AI Suggestion</h4>
-                  <p className="text-sm text-zinc-450 leading-relaxed font-sans">{aiResult.suggestion}</p>
+                  {renderSuggestionChecklist(aiResult.suggestion)}
                 </div>
               </div>
             </div>

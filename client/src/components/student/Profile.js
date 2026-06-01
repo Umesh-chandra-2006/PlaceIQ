@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
 import { FileText, Upload, CheckCircle, Zap, Loader2, Edit, Save, X } from 'lucide-react';
+import { getFileUrl } from '../../utils/fileUtil';
 
 const Profile = () => {
   const { user, updateUser } = useAuth();
@@ -338,13 +339,58 @@ const Profile = () => {
 
         <div className="col-span-1 space-y-6">
           <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800 text-white">
-            <h2 className="text-sm font-semibold tracking-tight mb-2 flex items-center gap-2">
+            <h2 className="text-sm font-semibold tracking-tight mb-4 flex items-center gap-2">
               <Zap size={16} className="text-primary-400" /> AI Quota
             </h2>
-            <p className="text-zinc-400 text-xs mb-4 leading-relaxed">You have a limited quota of deep AI ATS reviews per month.</p>
-            <div className="text-4xl font-bold tracking-tighter mb-1">
-              {3 - (profile.aiReviewsUsed || 0)}
-              <span className="text-xl font-normal text-zinc-500">/3</span>
+            <div className="flex items-center gap-5 mb-5">
+              <div className="relative w-16 h-16 flex-shrink-0">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="28"
+                    className="stroke-zinc-800"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <circle
+                    cx="32"
+                    cy="32"
+                    r="28"
+                    className="stroke-primary-500 transition-all duration-500"
+                    strokeWidth="4"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 28}`}
+                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - Math.max(0, 3 - (profile.aiReviewsUsed || 0)) / 3)}`}
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-lg font-bold tracking-tight">{Math.max(0, 3 - (profile.aiReviewsUsed || 0))}</span>
+                  <span className="text-[9px] text-zinc-500 font-mono -mt-1 font-bold">LEFT</span>
+                </div>
+              </div>
+              <div className="flex-1 space-y-2">
+                <p className="text-zinc-400 text-xs leading-relaxed">
+                  Monthly quota of deep AI ATS reviews. Resets periodically.
+                </p>
+                <div className="flex gap-1.5 pt-1">
+                  {[1, 2, 3].map((num) => {
+                    const remaining = Math.max(0, 3 - (profile.aiReviewsUsed || 0));
+                    const isActive = remaining >= num;
+                    return (
+                      <div 
+                        key={num} 
+                        className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                          isActive 
+                            ? 'bg-gradient-to-r from-primary-500 to-primary-400 shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
+                            : 'bg-zinc-800'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-4 border-t border-zinc-850 pt-3">
               Resets: {profile.aiReviewResetDate && !isNaN(new Date(profile.aiReviewResetDate)) ? new Date(profile.aiReviewResetDate).toLocaleDateString() : 'N/A'}
@@ -362,7 +408,7 @@ const Profile = () => {
                   Updated: {profile.resumeUpdatedAt && !isNaN(new Date(profile.resumeUpdatedAt)) ? new Date(profile.resumeUpdatedAt).toLocaleDateString() : 'N/A'}
                 </p>
                 <a 
-                  href={`http://localhost:5001${profile.resumeUrl}`} 
+                  href={getFileUrl(profile.resumeUrl)} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-xs text-primary-500 hover:text-primary-400 font-mono mt-2 block underline"

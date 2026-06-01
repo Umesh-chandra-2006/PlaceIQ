@@ -2,6 +2,31 @@ import React, { useState } from 'react';
 import axios from '../../api/axios';
 import { MapPin, DollarSign, Calendar, Sparkles, CheckCircle, Loader2, Zap, X } from 'lucide-react';
 
+const renderSuggestionChecklist = (suggestion) => {
+  if (!suggestion) return null;
+  
+  const items = suggestion
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(s => s.trim())
+    .map(s => s.replace(/^[\s-•*]+/, '').replace(/^\d+\.\s*/, '').trim())
+    .filter(s => s.length > 5);
+    
+  if (items.length === 0) {
+    return <p className="text-sm text-zinc-400 leading-relaxed font-sans">{suggestion}</p>;
+  }
+
+  return (
+    <ul className="space-y-2.5 mt-2 text-sm text-zinc-400 font-sans">
+      {items.map((item, idx) => (
+        <li key={idx} className="flex items-start gap-2.5 leading-relaxed">
+          <CheckCircle size={14} className="text-primary-400 mt-1 flex-shrink-0" />
+          <span>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 const JobCard = ({ job, onOpenDetails, onApplySuccess }) => {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
@@ -173,7 +198,7 @@ const JobCard = ({ job, onOpenDetails, onApplySuccess }) => {
                 )}
                 <div className="bg-zinc-950 p-4 rounded-lg border border-zinc-800 mt-6">
                   <h4 className="text-xs font-semibold text-zinc-200 uppercase tracking-wider mb-2 font-mono">AI Suggestion</h4>
-                  <p className="text-sm text-zinc-450 leading-relaxed font-sans">{aiResult.suggestion}</p>
+                  {renderSuggestionChecklist(aiResult.suggestion)}
                 </div>
               </div>
             </div>
