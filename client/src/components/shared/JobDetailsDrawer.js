@@ -518,7 +518,7 @@ const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) =
                                 accept=".pdf"
                                 className="hidden"
                                 required
-                                onChange={e => setFile(e.target.files[0] ? setOfferFile(e.target.files[0]) : null)}
+                                onChange={e => setOfferFile(e.target.files[0] || null)}
                               />
                             </div>
                           </div>
@@ -838,7 +838,7 @@ const JobDetailsDrawer = ({ job, onClose, theme = "student", onApplySuccess }) =
               <button 
                 onClick={handleConfirmApply}
                 disabled={applying}
-                className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-400 text-zinc-955 font-bold rounded flex justify-center items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-400 text-zinc-950 font-bold rounded flex justify-center items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 {applying && <Loader2 className="animate-spin" size={14} />}
                 Yes, I Applied

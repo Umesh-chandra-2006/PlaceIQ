@@ -26,8 +26,8 @@ const StudentAnnouncements = () => {
   const markAsRead = async (id, index) => {
     // Optimistic UI update
     const newAnns = [...announcements];
-    if (!newAnns[index].readBy.includes(user.id)) {
-      newAnns[index].readBy.push(user.id);
+    if (!newAnns[index].readBy.includes(user._id)) {
+      newAnns[index].readBy.push(user._id);
       setAnnouncements(newAnns);
       try {
         await axios.post(`/announcements/${id}/read`);
@@ -53,7 +53,7 @@ const StudentAnnouncements = () => {
       ) : (
         <div className="flex flex-col gap-4">
           {announcements.map((ann, i) => {
-            const isUnread = !ann.readBy.includes(user.id);
+            const isUnread = !ann.readBy.includes(user._id);
             return (
               <div 
                 key={ann._id} 
