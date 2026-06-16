@@ -728,11 +728,36 @@ const ResumeBuilder = () => {
   );
 
   const sectionsList = resumeData ? [
-    { id: 'personal', name: 'Contact Details', icon: FileSignature, completed: !!(resumeData.personal?.name && resumeData.personal?.email) },
-    { id: 'education', name: 'Education History', icon: GraduationCap, completed: !!(resumeData.education?.length > 0 && resumeData.education[0]?.institution) },
-    { id: 'experience', name: 'Work Experience', icon: FileText, completed: !!(resumeData.experience?.length > 0 && resumeData.experience[0]?.company) },
-    { id: 'projects', name: 'Academic Projects', icon: Code, completed: !!(resumeData.projects?.length > 0 && resumeData.projects[0]?.name) },
-    { id: 'skills', name: 'Skills Summary', icon: Save, completed: !!(resumeData.skills?.languages || resumeData.skills?.frameworks) },
+    { 
+      id: 'personal', 
+      name: 'Contact Details', 
+      icon: FileSignature, 
+      completed: !!(resumeData.personal?.name && resumeData.personal?.email && resumeData.personal?.phone && resumeData.personal?.phone !== '+91 9876543210') 
+    },
+    { 
+      id: 'education', 
+      name: 'Education History', 
+      icon: GraduationCap, 
+      completed: !!(resumeData.education?.length > 0 && resumeData.education[0]?.institution && resumeData.education[0]?.institution !== 'College Education') 
+    },
+    { 
+      id: 'experience', 
+      name: 'Work Experience', 
+      icon: FileText, 
+      completed: !!(resumeData.experience?.length > 0 && resumeData.experience[0]?.company && resumeData.experience[0]?.company !== 'PlaceIQ Corp') 
+    },
+    { 
+      id: 'projects', 
+      name: 'Academic Projects', 
+      icon: Code, 
+      completed: !!(resumeData.projects?.length > 0 && resumeData.projects[0]?.name && resumeData.projects[0]?.name !== 'PlaceIQ Placement Portal') 
+    },
+    { 
+      id: 'skills', 
+      name: 'Skills Summary', 
+      icon: Save, 
+      completed: !!(resumeData.skills?.languages && resumeData.skills?.languages !== 'JavaScript, Python, C++, SQL') 
+    },
     { id: 'templates', name: 'Choose Template', icon: Sparkles, completed: true }
   ] : [];
 
@@ -747,7 +772,7 @@ const ResumeBuilder = () => {
   const ActiveTemplate = templates[selectedTemplate]?.component || JakesTemplate;
 
   return (
-    <div className="h-[calc(100vh-10.5rem)] flex flex-col gap-4 text-zinc-100">
+    <div className="h-auto lg:h-[calc(100vh-10.5rem)] flex flex-col gap-4 text-zinc-100">
       
       {/* ── Top Dashboard Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/40 p-4 border border-zinc-800/80 rounded-xl">
@@ -781,7 +806,7 @@ const ResumeBuilder = () => {
       </div>
 
       {/* ── Workspace ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:overflow-hidden">
         
         {/* Left pane: Active Editor Accordion / LaTeX Code */}
         <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
