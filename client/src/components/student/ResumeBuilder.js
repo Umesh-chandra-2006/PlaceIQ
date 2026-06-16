@@ -270,7 +270,7 @@ const ResumeBuilder = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 text-zinc-100">
+    <div className="h-[calc(100vh-10.5rem)] flex flex-col gap-4 text-zinc-100">
       
       {/* ── Top Dashboard Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/40 p-4 border border-zinc-800/80 rounded-xl">
@@ -307,7 +307,7 @@ const ResumeBuilder = () => {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
         
         {/* Left pane: Active Editor View */}
-        <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-y-auto shadow-xl max-h-[calc(100vh-14rem)]">
+        <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
           {activeMode === 'form' ? (
             <div className="p-5 space-y-6">
               <h2 className="text-sm font-bold border-b border-zinc-800 pb-2 text-zinc-300">Resume Details Form</h2>
@@ -669,10 +669,10 @@ const ResumeBuilder = () => {
         </div>
 
         {/* Center/Right pane: radial preview & widget sidebar */}
-        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[calc(100vh-14rem)] overflow-hidden">
+        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-4 lg:h-full lg:overflow-hidden">
           
           {/* Iframe preview container */}
-          <div className="md:col-span-8 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[400px]">
+          <div className="md:col-span-8 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[450px] md:min-h-0 md:h-full">
             <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
               <div className="flex items-center gap-2">
@@ -758,7 +758,7 @@ const ResumeBuilder = () => {
           </div>
 
           {/* Right widget pane */}
-          <div className="md:col-span-4 space-y-4">
+          <div className="md:col-span-4 space-y-4 md:overflow-y-auto md:h-full pr-0 md:pr-1">
             <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
             
             {/* Template Card Info */}

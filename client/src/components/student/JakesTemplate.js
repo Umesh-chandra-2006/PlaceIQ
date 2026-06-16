@@ -1,5 +1,16 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
+
+// Register standard Times family variants under a single 'Times-Roman' font family name
+Font.register({
+  family: 'Times-Roman',
+  fonts: [
+    { src: 'Times-Roman' },
+    { src: 'Times-Bold', fontWeight: 'bold' },
+    { src: 'Times-Italic', fontStyle: 'italic' },
+    { src: 'Times-BoldItalic', fontWeight: 'bold', fontStyle: 'italic' }
+  ]
+});
 
 const styles = StyleSheet.create({
   page: {
@@ -16,7 +27,6 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Times-Bold',
     marginBottom: 2
   },
   contactDetails: {
@@ -35,7 +45,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 10,
     fontWeight: 'bold',
-    fontFamily: 'Times-Bold',
     letterSpacing: 0.5,
     marginTop: 10,
     marginBottom: 4,
@@ -50,12 +59,10 @@ const styles = StyleSheet.create({
     marginBottom: 1
   },
   boldText: {
-    fontWeight: 'bold',
-    fontFamily: 'Times-Bold'
+    fontWeight: 'bold'
   },
   italicText: {
-    fontStyle: 'italic',
-    fontFamily: 'Times-Italic'
+    fontStyle: 'italic'
   },
   bulletsContainer: {
     marginLeft: 10,
