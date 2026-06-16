@@ -13,14 +13,14 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
   try {
     const { name, licenceStatus, adminName, adminEmail, aiReviewQuota } = req.body;
     // Sanitize: strip any accidental leading '@' the super-admin may have typed
-    const emailDomain = (req.body.emailDomain || '').replace(/^@+/, '').trim().toLowerCase();
+    const emailDomain = (req.body.emailDomain || "").replace(/^@+/, "").trim().toLowerCase();
 
     if (!name || !emailDomain || !adminName || !adminEmail) {
       return res.status(400).json({ error: "Missing required fields (name, emailDomain, adminName, adminEmail)." });
     }
 
     // Reject if the domain still contains '@' (e.g. 'user@domain.com' was entered)
-    if (emailDomain.includes('@')) {
+    if (emailDomain.includes("@")) {
       return res.status(400).json({ error: "Email Domain must be a plain domain, e.g. 'anu.edu.in' — do not include '@' or a full email address." });
     }
 

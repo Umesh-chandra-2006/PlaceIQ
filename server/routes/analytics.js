@@ -60,9 +60,9 @@ router.get("/branch", protect, requireRole("coordinator"), requirePaid, async (r
     const stats = await User.aggregate([
       { $match: { collegeId: new mongoose.Types.ObjectId(req.user.collegeId), role: "student", isActive: { $ne: false } } },
       { $group: { 
-          _id: "$branch", 
-          total: { $sum: 1 },
-          placed: { $sum: { $cond: ["$isPlaced", 1, 0] } }
+        _id: "$branch", 
+        total: { $sum: 1 },
+        placed: { $sum: { $cond: ["$isPlaced", 1, 0] } }
       } }
     ]);
     res.json(stats);

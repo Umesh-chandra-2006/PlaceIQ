@@ -3,7 +3,6 @@ const router = express.Router();
 const multer = require("multer");
 const pdfParse = require("pdf-parse");
 const fs = require("fs");
-const path = require("path");
 const User = require("../models/User");
 const { protect } = require("../middleware/auth");
 const { enforceOnboarding } = require("../middleware/onboarded");

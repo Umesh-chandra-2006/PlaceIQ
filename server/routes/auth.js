@@ -189,10 +189,10 @@ router.post("/forgot-password", async (req, res) => {
     const resetUrl = `${clientUrl}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
 
     const emailSubject = "PlaceIQ: Reset Your Password";
-    const emailText = `You are receiving this email because you (or someone else) requested a password reset for your PlaceIQ account.\n\n` +
-      `Please click on the following link, or paste it into your browser to complete the process:\n\n` +
+    const emailText = "You are receiving this email because you (or someone else) requested a password reset for your PlaceIQ account.\n\n" +
+      "Please click on the following link, or paste it into your browser to complete the process:\n\n" +
       `${resetUrl}\n\n` +
-      `If you did not request this, please ignore this email and your password will remain unchanged.\n`;
+      "If you did not request this, please ignore this email and your password will remain unchanged.\n";
     
     const emailHtml = `
       <div style="font-family: sans-serif; padding: 20px; color: #18181b;">

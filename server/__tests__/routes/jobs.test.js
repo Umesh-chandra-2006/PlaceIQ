@@ -34,7 +34,6 @@ jest.mock("../../services/broadcast", () => ({
 const jobsRouter = require("../../routes/jobs");
 const dbHelper = require("../../test-helpers/dbHelper");
 const Job = require("../../models/Job");
-const User = require("../../models/User");
 
 const app = express();
 app.use(express.json());
@@ -354,7 +353,6 @@ describe("Jobs Routes Test", () => {
 
     it("should reject student from updating a job", async () => {
       // Create job as coordinator first
-      const tempRole = mockUser.role;
       mockUser.role = "coordinator";
       const job = await Job.create({
         title: "Existing Job",

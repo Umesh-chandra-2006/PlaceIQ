@@ -37,12 +37,12 @@ if (
  */
 const uploadFile = async (fileBuffer, originalName, prefix, customId) => {
   // Sanitize filename to prevent path traversal
-  const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9._-]/g, '_');
-  const extension = path.extname(safeName) || '.pdf';
+  const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9._-]/g, "_");
+  const extension = path.extname(safeName) || ".pdf";
 
   // Validate extension
   if (!ALLOWED_FILE_EXTENSIONS.includes(extension.toLowerCase())) {
-    throw new Error(`File type ${extension} not allowed. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`);
+    throw new Error(`File type ${extension} not allowed. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(", ")}`);
   }
 
   const uniqueName = `${prefix}-${customId}-${Date.now()}${extension}`;
@@ -53,7 +53,7 @@ const uploadFile = async (fileBuffer, originalName, prefix, customId) => {
         const stream = cloudinary.uploader.upload_stream(
           {
             folder: `placeiq/${prefix}`,
-            public_id: uniqueName.replace(extension, ''), // Cloudinary strips extension from public_id when uploading
+            public_id: uniqueName.replace(extension, ""), // Cloudinary strips extension from public_id when uploading
             resource_type: "raw",
           },
           (error, result) => {

@@ -20,8 +20,8 @@ async function scrapeUnstop(url) {
     const placementStatus = Array.isArray(rawStatus)
       ? rawStatus
       : rawStatus
-      ? [rawStatus]
-      : ["not_placed"];
+        ? [rawStatus]
+        : ["not_placed"];
 
     return {
       // Core fields

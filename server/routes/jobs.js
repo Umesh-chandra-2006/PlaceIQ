@@ -268,15 +268,15 @@ router.post("/scrape", protect, requireRole("coordinator"), requirePaid, async (
 
     const scrapedData = await scrapeUnstop(url);
     // Sync stipend <-> ctc for backwards compat
-    if (scrapedData.stipend && scrapedData.stipend !== 'N/A') scrapedData.ctc = scrapedData.stipend;
-    if (scrapedData.ctc && scrapedData.ctc !== 'N/A') scrapedData.stipend = scrapedData.ctc;
+    if (scrapedData.stipend && scrapedData.stipend !== "N/A") scrapedData.ctc = scrapedData.stipend;
+    if (scrapedData.ctc && scrapedData.ctc !== "N/A") scrapedData.stipend = scrapedData.ctc;
     // Build combined description for ATS/AI features
     const parts = [
       scrapedData.rolesAndResponsibilities,
       scrapedData.requirements,
       scrapedData.description
-    ].filter(p => p && p !== 'N/A');
-    if (parts.length) scrapedData.description = parts.join('\n\n');
+    ].filter(p => p && p !== "N/A");
+    if (parts.length) scrapedData.description = parts.join("\n\n");
     res.json(scrapedData);
   } catch (error) {
     console.error("API Error:", error);

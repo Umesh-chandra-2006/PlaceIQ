@@ -212,7 +212,7 @@ router.post("/:id/rounds", protect, requireRole("coordinator"), async (req, res)
       userId: app.studentId,
       collegeId: app.collegeId,
       title: "Interview Round Scheduled",
-      message: `Your ${roundType} round has been scheduled for ${scheduledAt ? new Date(scheduledAt).toLocaleDateString() : 'N/A'}`,
+      message: `Your ${roundType} round has been scheduled for ${scheduledAt ? new Date(scheduledAt).toLocaleDateString() : "N/A"}`,
       type: "interview"
     });
 
@@ -354,7 +354,7 @@ router.put("/:id/offer-verify", protect, requireRole("coordinator"), async (req,
       userId: app.studentId,
       collegeId: app.collegeId,
       title: `Offer Letter ${status === "verified" ? "Verified" : "Rejected"}`,
-      message: `Your uploaded offer letter was ${status === "verified" ? "approved" : "rejected by the coordinator"}. Review notes: ${reviewNotes || 'None'}`,
+      message: `Your uploaded offer letter was ${status === "verified" ? "approved" : "rejected by the coordinator"}. Review notes: ${reviewNotes || "None"}`,
       type: "offer"
     });
 

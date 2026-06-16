@@ -1,4 +1,4 @@
-const { uploadFile, isCloudinaryActive } = require("../../services/storageService");
+const { uploadFile } = require("../../services/storageService");
 
 describe("Storage Service", () => {
   it("should block disallowed file types", async () => {

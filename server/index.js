@@ -23,7 +23,7 @@ connectDB();
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || "http://localhost:3000",
   credentials: true,
 }));
 app.use(express.json());
@@ -32,43 +32,43 @@ app.use(express.json());
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,                   // 20 attempts per window
-  message: { error: 'Too many requests. Try again later.' },
+  message: { error: "Too many requests. Try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/auth/login', authLimiter);
-app.use('/api/auth/setup-complete', authLimiter);
-app.use('/api/auth/forgot-password', authLimiter);
-app.use('/api/auth/reset-password', authLimiter);
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/setup-complete", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+app.use("/api/auth/reset-password", authLimiter);
 
 // Routes
-const authRoutes = require('./routes/auth');
-const jobsRoutes = require('./routes/jobs');
-const appRoutes = require('./routes/applications');
-const batchesRoutes = require('./routes/batches');
-const studentsRoutes = require('./routes/students');
-const analyticsRoutes = require('./routes/analytics');
-const announcementsRoutes = require('./routes/announcements');
-const adminRoutes = require('./routes/admin');
-const notificationsRoutes = require('./routes/notifications');
-const companiesRoutes = require('./routes/companies');
-const exportRoutes = require('./routes/export');
+const authRoutes = require("./routes/auth");
+const jobsRoutes = require("./routes/jobs");
+const appRoutes = require("./routes/applications");
+const batchesRoutes = require("./routes/batches");
+const studentsRoutes = require("./routes/students");
+const analyticsRoutes = require("./routes/analytics");
+const announcementsRoutes = require("./routes/announcements");
+const adminRoutes = require("./routes/admin");
+const notificationsRoutes = require("./routes/notifications");
+const companiesRoutes = require("./routes/companies");
+const exportRoutes = require("./routes/export");
 
 // Use routes
-app.use('/api/auth', authRoutes);
-app.use('/api/jobs', jobsRoutes);
-app.use('/api/applications', appRoutes);
-app.use('/api/batches', batchesRoutes);
-app.use('/api/students', studentsRoutes);
-app.use('/api/analytics', analyticsRoutes);
-app.use('/api/announcements', announcementsRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/companies', companiesRoutes);
-app.use('/api/export', exportRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobsRoutes);
+app.use("/api/applications", appRoutes);
+app.use("/api/batches", batchesRoutes);
+app.use("/api/students", studentsRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/announcements", announcementsRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/notifications", notificationsRoutes);
+app.use("/api/companies", companiesRoutes);
+app.use("/api/export", exportRoutes);
 
 // Serve static files from uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Root route
 app.get("/", (req, res) => {
@@ -76,7 +76,7 @@ app.get("/", (req, res) => {
 });
 
 // Initialize Cron Jobs
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   setupDeadlineReminders();
   setupUrgencyRefresh();
   setupAutoClose();

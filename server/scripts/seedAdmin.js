@@ -33,17 +33,23 @@ const seed = async () => {
     try {
       const Application = require("../models/Application");
       await Application.deleteMany({});
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
 
     try {
       const Batch = require("../models/Batch");
       await Batch.deleteMany({});
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
 
     try {
       const AtsScore = require("../models/AtsScore");
       await AtsScore.deleteMany({});
-    } catch (e) {}
+    } catch (e) {
+      // ignore
+    }
 
     console.log("All collections cleared.");
 
@@ -61,7 +67,7 @@ const seed = async () => {
       isSetup: true
     });
 
-    console.log(`Seeding completed. Super Admin account created:`);
+    console.log("Seeding completed. Super Admin account created:");
     console.log(`- Email: ${email}`);
     console.log(`- Password: ${password}`);
     

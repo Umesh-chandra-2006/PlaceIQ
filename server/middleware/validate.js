@@ -9,19 +9,19 @@ const validate = (schema) => (req, res, next) => {
     const rules = schema[key];
     const value = req.body[key];
 
-    if (rules.required && (value === undefined || value === null || value === '')) {
+    if (rules.required && (value === undefined || value === null || value === "")) {
       errors.push(`${key} is required`);
     }
 
     if (value !== undefined && value !== null) {
-      if (rules.type === 'number' && typeof value !== 'number') {
+      if (rules.type === "number" && typeof value !== "number") {
         errors.push(`${key} must be a number`);
       }
-      if (rules.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      if (rules.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
         errors.push(`${key} must be a valid email`);
       }
       if (rules.enum && !rules.enum.includes(value)) {
-        errors.push(`${key} must be one of: ${rules.enum.join(', ')}`);
+        errors.push(`${key} must be one of: ${rules.enum.join(", ")}`);
       }
     }
   });

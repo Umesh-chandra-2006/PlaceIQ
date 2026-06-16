@@ -1,11 +1,11 @@
 const ROLES = {
-  SUPERADMIN: 'superadmin',
-  ADMIN: 'admin',
-  COORDINATOR: 'coordinator',
-  STUDENT: 'student'
+  SUPERADMIN: "superadmin",
+  ADMIN: "admin",
+  COORDINATOR: "coordinator",
+  STUDENT: "student"
 };
 
-const ALLOWED_FILE_EXTENSIONS = ['.pdf', '.doc', '.docx'];
+const ALLOWED_FILE_EXTENSIONS = [".pdf", ".doc", ".docx"];
 
 const PAGINATION_DEFAULTS = {
   DEFAULT_LIMIT: 20,

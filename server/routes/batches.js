@@ -270,10 +270,10 @@ router.post("/students/:id/send-login", protect, requireRole("coordinator"), asy
     console.log(`[EMAIL DISPATCH] To: ${student.email}`);
     console.log("Subject: Welcome to PlaceIQ - Portal Login Details");
     console.log("Body: Your student account has been created.");
-    console.log(`Access Credentials:`);
-    console.log(`  - Login Link: http://localhost:3000/login`);
+    console.log("Access Credentials:");
+    console.log("  - Login Link: http://localhost:3000/login");
     console.log(`  - Username: ${student.email}`);
-    console.log(`  - Password: student123`);
+    console.log("  - Password: student123");
     console.log("============================================================\n");
 
     student.loginEmailSent = true;
