@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from '../../api/axios';
-import { MapPin, DollarSign, Calendar, Sparkles, CheckCircle, Loader2, Zap, X } from 'lucide-react';
+import { MapPin, DollarSign, Calendar, CheckCircle, Loader2, Zap, X } from 'lucide-react';
 
 const renderSuggestionChecklist = (suggestion) => {
   if (!suggestion) return null;

@@ -5,9 +5,12 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/User");
 const College = require("../models/College");
 const { protect } = require("../middleware/auth");
+const { sendEmail } = require("../services/notify");
+const cacheMiddleware = require("../middleware/cache");
 
 
 
@@ -118,7 +121,7 @@ router.get("/me", protect, async (req, res) => {
 
 // @route   GET /api/auth/college
 // @desc    Get user's college details
-router.get("/college", protect, async (req, res) => {
+router.get("/college", protect, cacheMiddleware(300), async (req, res) => {
   try {
     if (!req.user.collegeId) return res.status(400).json({ error: "No college associated" });
     const college = await College.findById(req.user.collegeId);
@@ -126,6 +129,125 @@ router.get("/college", protect, async (req, res) => {
     res.json(college);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   PUT /api/auth/change-password
+// @desc    Change user password
+router.put("/change-password", protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Current password and new password are required." });
+    }
+    
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid current password." });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters long." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    
+    res.json({ message: "Password updated successfully." });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    res.status(500).json({ error: "Server error during password change." });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Generate password reset token and send email
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    }
+
+    const token = crypto.randomBytes(20).toString("hex");
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
+    await user.save();
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+    const resetUrl = `${clientUrl}/reset-password?email=${encodeURIComponent(email)}&token=${token}`;
+
+    const emailSubject = "PlaceIQ: Reset Your Password";
+    const emailText = `You are receiving this email because you (or someone else) requested a password reset for your PlaceIQ account.\n\n` +
+      `Please click on the following link, or paste it into your browser to complete the process:\n\n` +
+      `${resetUrl}\n\n` +
+      `If you did not request this, please ignore this email and your password will remain unchanged.\n`;
+    
+    const emailHtml = `
+      <div style="font-family: sans-serif; padding: 20px; color: #18181b;">
+        <h2 style="color: #4f46e5;">Password Reset Request</h2>
+        <p>You requested a password reset for your PlaceIQ account.</p>
+        <p>Please click the button below to set a new password. This link is valid for 1 hour.</p>
+        <div style="margin: 24px 0;">
+          <a href="${resetUrl}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Reset Password</a>
+        </div>
+        <p style="color: #71717a; font-size: 12px; margin-top: 24px;">If you didn't request this, you can safely ignore this email.</p>
+      </div>
+    `;
+
+    await sendEmail(user.email, emailSubject, emailText, emailHtml);
+    res.json({ message: "If an account exists with that email, a reset link has been sent." });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ error: "Server error during forgot password flow." });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password using token
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, token, password } = req.body;
+    if (!email || !token || !password) {
+      return res.status(400).json({ error: "Email, token, and new password are required." });
+    }
+
+    const user = await User.findOne({
+      email,
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: "Invalid reset token or token has expired." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters long." });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(password, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    if (!user.isSetup) user.isSetup = true;
+
+    await user.save();
+    res.json({ message: "Password reset successfully. You can now log in with your new password." });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({ error: "Server error during password reset." });
   }
 });
 

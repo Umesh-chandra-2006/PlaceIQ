@@ -18,8 +18,8 @@ const Tracker = () => {
 
   const fetchApps = async () => {
     try {
-      const { data } = await axios.get('/applications');
-      setApplications(data);
+      const { data } = await axios.get('/applications?limit=1000');
+      setApplications(data && data.data ? data.data : (Array.isArray(data) ? data : []));
     } catch (error) {
       console.error("Error fetching applications", error);
     } finally {

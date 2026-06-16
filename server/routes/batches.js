@@ -10,14 +10,28 @@ const User = require("../models/User");
 const { protect } = require("../middleware/auth");
 const { requireRole } = require("../middleware/requireRole");
 
+const paginate = require("../middleware/paginate");
+const { logAudit } = require("../middleware/auditLogger");
+
 const upload = multer({ dest: "uploads/" });
 
 // @route   GET /api/batches
 // @desc    Get all batches for college
-router.get("/", protect, requireRole("coordinator"), async (req, res) => {
+router.get("/", protect, requireRole("coordinator"), paginate(), async (req, res) => {
   try {
-    const batches = await Batch.find({ collegeId: req.user.collegeId }).sort({ createdAt: -1 });
-    res.json(batches);
+    const total = await Batch.countDocuments({ collegeId: req.user.collegeId });
+    const batches = await Batch.find({ collegeId: req.user.collegeId })
+      .sort({ createdAt: -1 })
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+      
+    res.json({
+      total,
+      page: req.pagination.page,
+      limit: req.pagination.limit,
+      pages: Math.ceil(total / req.pagination.limit),
+      data: batches
+    });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
@@ -31,6 +45,7 @@ router.post("/", protect, requireRole("coordinator"), async (req, res) => {
       ...req.body,
       collegeId: req.user.collegeId
     });
+    await logAudit(req, "CREATE_BATCH", "Batch", batch._id, { name: batch.name });
     res.status(201).json(batch);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
@@ -38,12 +53,50 @@ router.post("/", protect, requireRole("coordinator"), async (req, res) => {
 });
 
 // @route   GET /api/batches/:id/students
-// @desc    Get students in a batch
-router.get("/:id/students", protect, requireRole("coordinator"), async (req, res) => {
+// @desc    Get students in a batch with pagination, search and filtering
+router.get("/:id/students", protect, requireRole("coordinator"), paginate(), async (req, res) => {
   try {
-    const batch = await Batch.findOne({ _id: req.params.id, collegeId: req.user.collegeId }).populate("studentIds");
+    const batch = await Batch.findOne({ _id: req.params.id, collegeId: req.user.collegeId });
     if (!batch) return res.status(404).json({ error: "Batch not found" });
-    res.json(batch.studentIds);
+    
+    let studentQuery = { _id: { $in: batch.studentIds } };
+
+    // Search by name, roll number, or email
+    if (req.query.search) {
+      const searchRegex = { $regex: req.query.search, $options: "i" };
+      studentQuery.$or = [
+        { name: searchRegex },
+        { rollNumber: searchRegex },
+        { email: searchRegex }
+      ];
+    }
+
+    // Filter by minimum CGPA
+    if (req.query.minCgpa) {
+      const cgpaVal = parseFloat(req.query.minCgpa);
+      if (!isNaN(cgpaVal)) {
+        studentQuery.cgpa = { $gte: cgpaVal };
+      }
+    }
+
+    // Filter by department
+    if (req.query.department) {
+      studentQuery.department = req.query.department;
+    }
+
+    const total = await User.countDocuments(studentQuery);
+    const students = await User.find(studentQuery)
+      .select("-passwordHash -resumeText")
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+
+    res.json({
+      total,
+      page: req.pagination.page,
+      limit: req.pagination.limit,
+      pages: Math.ceil(total / req.pagination.limit),
+      data: students
+    });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }
@@ -111,7 +164,8 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
               tenthPercent: row.tenthPercent || row.TenthPercent || 0,
               twelfthPercent: row.twelfthPercent || row.TwelfthPercent || 0,
               activeBacklogs: row.activeBacklogs || row.ActiveBacklogs || 0,
-              backlogs: row.backlogs || row.Backlogs || 0
+              backlogs: row.backlogs || row.Backlogs || 0,
+              phone: row.phone || row.Phone || ""
             });
           }
           if (!batch.studentIds.includes(user._id)) {
@@ -120,6 +174,7 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
           }
         }
         await batch.save();
+        await logAudit(req, "IMPORT_STUDENTS", "Batch", batch._id, { count: newStudents.length });
         res.json({ message: `Imported ${newStudents.length} students`, students: newStudents });
       } catch (err) {
         console.error("Error processing CSV records:", err);
@@ -139,7 +194,7 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
 // @desc    Provision a single student under a batch (cohort)
 router.post("/:id/students/single", protect, requireRole("coordinator"), async (req, res) => {
   try {
-    const { name, email, rollNumber, branch, year, cgpa } = req.body;
+    const { name, email, rollNumber, branch, year, cgpa, phone } = req.body;
     if (!name || !email) {
       return res.status(400).json({ error: "Name and email are required." });
     }
@@ -167,7 +222,8 @@ router.post("/:id/students/single", protect, requireRole("coordinator"), async (
       section: batch.section,
       rollNumber,
       year: year || batch.year,
-      cgpa: cgpa || 0
+      cgpa: cgpa || 0,
+      phone: phone || ""
     });
 
     if (!batch.studentIds.includes(student._id)) {
@@ -226,6 +282,42 @@ router.post("/students/:id/send-login", protect, requireRole("coordinator"), asy
     res.json(student);
   } catch (error) {
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// @route   DELETE /api/batches/:id/students/:studentId
+// @desc    Remove a student from a batch and clean up their pending applications for jobs in this batch
+router.delete("/:id/students/:studentId", protect, requireRole("coordinator"), async (req, res) => {
+  try {
+    const { id, studentId } = req.params;
+    const batch = await Batch.findOne({ _id: id, collegeId: req.user.collegeId });
+    if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+    // Remove student from batch
+    batch.studentIds = batch.studentIds.filter(sid => sid.toString() !== studentId);
+    await batch.save();
+
+    // Find all jobs that target this batch
+    const Job = require("../models/Job");
+    const Application = require("../models/Application");
+    
+    const batchJobs = await Job.find({ "eligibility.batchIds": id });
+    const batchJobIds = batchJobs.map(j => j._id);
+
+    // Cancel their pending applications for these jobs
+    const cleanupResult = await Application.updateMany(
+      { studentId, stage: "applied", jobId: { $in: batchJobIds } },
+      { $set: { stage: "rejected", notes: "Auto-cancelled: removed from cohort/batch" } }
+    );
+
+    res.json({ 
+      message: "Student removed from batch and pending applications updated.", 
+      modifiedApplicationsCount: cleanupResult.modifiedCount,
+      studentIds: batch.studentIds 
+    });
+  } catch (error) {
+    console.error("Error removing student from batch:", error);
+    res.status(500).json({ error: "Server error removing student from batch." });
   }
 });
 

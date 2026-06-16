@@ -7,6 +7,7 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  phone: String,
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ["superadmin", "admin", "coordinator", "student"], required: true },
   subRole: { type: String, enum: ["coordinator_free", "coordinator_paid", null], default: null },
@@ -28,6 +29,8 @@ const userSchema = new mongoose.Schema({
   isOnboarded: { type: Boolean, default: false },
   isSetup: { type: Boolean, default: false },
   setupToken: String,
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   aiReviewsUsed: { type: Number, default: 0 },
   aiReviewResetDate: Date,
   placementStatus: {
@@ -50,5 +53,9 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.index({ collegeId: 1, role: 1 });
+userSchema.index({ email: 1 });
+userSchema.index({ setupToken: 1 });
+userSchema.index({ resetPasswordToken: 1 });
 
 module.exports = mongoose.model("User", userSchema);
+

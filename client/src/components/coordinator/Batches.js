@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
-import { Upload, Plus, Users, Download, X, Loader2, Check } from 'lucide-react';
+import { Upload, Plus, Download, X, Loader2, Check } from 'lucide-react';
+import Pagination from '../shared/Pagination';
 
 const Batches = () => {
   const [batches, setBatches] = useState([]);
@@ -17,14 +18,25 @@ const Batches = () => {
   const [submittingStudent, setSubmittingStudent] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+
+  // Search & Filter states
+  const [search, setSearch] = useState('');
+  const [minCgpa, setMinCgpa] = useState('');
+  const [department, setDepartment] = useState('');
+
   useEffect(() => {
     fetchBatches();
   }, []);
 
   const fetchBatches = async () => {
     try {
-      const { data } = await axios.get('/batches');
-      setBatches(data);
+      const { data } = await axios.get('/batches?limit=1000');
+      setBatches(data && data.data ? data.data : (Array.isArray(data) ? data : []));
     } catch (error) {
       console.error('Error fetching batches', error);
     }
@@ -41,12 +53,20 @@ const Batches = () => {
     }
   };
 
-  const selectBatch = async (batch) => {
-    setSelectedBatch(batch);
+  const fetchStudents = async () => {
+    if (!selectedBatch) return;
     setLoading(true);
     try {
-      const { data } = await axios.get(`/batches/${batch._id}/students`);
-      setStudents(data);
+      const { data } = await axios.get(`/batches/${selectedBatch._id}/students?search=${search}&minCgpa=${minCgpa}&department=${department}&page=${page}&limit=${limit}`);
+      if (data && data.data) {
+        setStudents(data.data);
+        setTotalPages(data.pages || 1);
+        setTotalStudents(data.total || 0);
+      } else {
+        setStudents(Array.isArray(data) ? data : []);
+        setTotalPages(1);
+        setTotalStudents(Array.isArray(data) ? data.length : 0);
+      }
     } catch (error) {
       console.error('Error fetching students', error);
     } finally {
@@ -54,32 +74,39 @@ const Batches = () => {
     }
   };
 
-  const handleDownloadRoster = () => {
-    if (!selectedBatch || students.length === 0) return;
-    
-    let csvContent = "";
-    
-    // Roster Header
-    csvContent += "STUDENT COHORT ROSTER\n";
-    csvContent += `Cohort Name,${selectedBatch.name}\n`;
-    csvContent += `Branch,${selectedBatch.branch || 'N/A'}\n`;
-    csvContent += `Graduation Year,${selectedBatch.year || 'N/A'}\n`;
-    csvContent += `Total Students,${students.length}\n\n`;
-    
-    // Roster Table Data
-    csvContent += "Student Name,Email,Roll Number,CGPA,Placement Status,Active\n";
-    students.forEach(student => {
-      csvContent += `"${student.name}","${student.email}","${student.rollNumber || ''}",${student.cgpa || 0.0},"${student.placementStatus || 'not_placed'}",${student.isActive !== false ? 'Yes' : 'No'}\n`;
-    });
+  useEffect(() => {
+    fetchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBatch, search, minCgpa, department, page, limit]);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `cohort_roster_${selectedBatch.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  useEffect(() => {
+    setPage(1);
+  }, [search, minCgpa, department]);
+
+  const selectBatch = (batch) => {
+    setSelectedBatch(batch);
+    setSearch('');
+    setMinCgpa('');
+    setDepartment('');
+    setPage(1);
+  };
+
+  const handleDownloadRoster = () => {
+    if (!selectedBatch) return;
+    axios.get(`/export/students?batchId=${selectedBatch._id}`, { responseType: 'blob' })
+      .then(response => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `cohort_roster_${selectedBatch.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      })
+      .catch(error => {
+        console.error("Error downloading roster:", error);
+        alert("Failed to download roster.");
+      });
   };
 
   const handleFileUpload = async (e) => {
@@ -94,7 +121,7 @@ const Batches = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       alert('Students imported successfully!');
-      selectBatch(selectedBatch); 
+      fetchStudents(); 
       fetchBatches(); 
     } catch (error) {
       console.error('Error uploading CSV', error);
@@ -123,8 +150,15 @@ const Batches = () => {
         cgpa: newStudent.cgpa ? Number(newStudent.cgpa) : 0
       });
       setSuccessMessage('Student account created. Share their login email with the default password: student123.');
-      setNewStudent({ name: '', email: '', rollNumber: '', branch: '', year: '', cgpa: '' });
-      selectBatch(selectedBatch);
+      setNewStudent({
+        name: '',
+        email: '',
+        rollNumber: '',
+        branch: selectedBatch?.branch || '',
+        year: selectedBatch?.year || '',
+        cgpa: ''
+      });
+      fetchStudents();
       fetchBatches();
     } catch (error) {
       alert(error.response?.data?.error || 'Failed to add student. Ensure email is unique and valid.');
@@ -148,14 +182,19 @@ const Batches = () => {
           />
           <div className="flex gap-2">
             <input 
-              type="text" placeholder="Branch"
-              className="w-1/2 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm focus:outline-none focus:border-zinc-700"
+              type="text" placeholder="Branch" required
+              className="w-1/3 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm focus:outline-none focus:border-zinc-700"
               value={newBatch.branch} onChange={e => setNewBatch({...newBatch, branch: e.target.value})}
             />
             <input 
               type="text" placeholder="Section"
-              className="w-1/2 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm focus:outline-none focus:border-zinc-700"
+              className="w-1/3 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm focus:outline-none focus:border-zinc-700"
               value={newBatch.section} onChange={e => setNewBatch({...newBatch, section: e.target.value})}
+            />
+            <input 
+              type="number" placeholder="Year" required
+              className="w-1/3 px-2 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm focus:outline-none focus:border-zinc-700 font-mono"
+              value={newBatch.year} onChange={e => setNewBatch({...newBatch, year: parseInt(e.target.value) || ''})}
             />
           </div>
           <button type="submit" className="w-full bg-zinc-800 text-zinc-200 text-sm py-1.5 rounded hover:bg-zinc-700 transition-colors mt-2">
@@ -194,10 +233,10 @@ const Batches = () => {
             <div className="px-4 py-3 border-b border-zinc-800 flex justify-between items-center bg-zinc-900">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-zinc-200">{selectedBatch.name} Roster</span>
-                <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono text-[10px]">{students.length} students</span>
+                <span className="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded font-mono text-[10px]">{totalStudents} students</span>
               </div>
               <div className="flex items-center gap-2">
-                {students.length > 0 && (
+                {selectedBatch.studentIds?.length > 0 && (
                   <button 
                     onClick={handleDownloadRoster}
                     className="bg-zinc-850 hover:bg-zinc-800 text-zinc-300 px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors border border-zinc-800"
@@ -206,7 +245,17 @@ const Batches = () => {
                   </button>
                 )}
                 <button 
-                  onClick={() => setShowAddModal(true)}
+                  onClick={() => {
+                    setNewStudent({
+                      name: '',
+                      email: '',
+                      rollNumber: '',
+                      branch: selectedBatch?.branch || '',
+                      year: selectedBatch?.year || '',
+                      cgpa: ''
+                    });
+                    setShowAddModal(true);
+                  }}
                   className="bg-zinc-800 hover:bg-zinc-700 text-zinc-100 px-3 py-1 text-xs font-medium rounded flex items-center gap-1.5 transition-colors border border-zinc-700"
                 >
                   <Plus size={14} /> Add Student
@@ -218,77 +267,114 @@ const Batches = () => {
               </div>
             </div>
 
+            {/* Search and Filters */}
+            <div className="px-4 py-2 bg-zinc-950 border-b border-zinc-800 flex flex-col sm:flex-row gap-2.5 items-center justify-between">
+              <div className="relative flex-1 w-full max-w-xs">
+                <input
+                  type="text"
+                  placeholder="Search by name, roll no, email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-3 pr-3 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs focus:outline-none focus:border-zinc-700 text-zinc-200"
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  placeholder="Min CGPA"
+                  value={minCgpa}
+                  onChange={(e) => setMinCgpa(e.target.value)}
+                  className="w-24 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-xs focus:outline-none focus:border-zinc-700 text-zinc-350"
+                />
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-xs focus:outline-none focus:border-zinc-700 text-zinc-350"
+                >
+                  <option value="">All Departments</option>
+                  {["CSE", "ECE", "MECH", "CIVIL", "EEE", "IT"].map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="flex-1 overflow-auto bg-zinc-950">
               {loading ? (
                 <div className="p-8 text-center text-zinc-500 text-sm">Loading records...</div>
               ) : students.length > 0 ? (
-                <table className="min-w-full text-left text-sm whitespace-nowrap bg-zinc-950">
-                  <thead className="bg-zinc-950 sticky top-0 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500 font-medium">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Name</th>
-                      <th className="px-4 py-2 font-medium">Email</th>
-                      <th className="px-4 py-2 font-medium">Roll No</th>
-                      <th className="px-4 py-2 font-medium text-right">CGPA</th>
-                      <th className="px-4 py-2 font-medium text-right">Status</th>
-                      <th className="px-4 py-2 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50 bg-zinc-950">
-                    {students.map(student => (
-                      <tr key={student._id} className={`hover:bg-zinc-900/50 transition-colors ${student.isActive === false ? 'opacity-50' : ''}`}>
-                        <td className="px-4 py-2 font-medium text-zinc-200">{student.name}</td>
-                        <td className="px-4 py-2 text-zinc-500">{student.email}</td>
-                        <td className="px-4 py-2 font-mono text-xs text-zinc-400">{student.rollNumber || '-'}</td>
-                        <td className="px-4 py-2 text-right font-mono text-zinc-300">{student.cgpa || '-'}</td>
-                        <td className="px-4 py-2 text-right">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
-                            student.placementStatus === 'not_placed' ? 'bg-zinc-800 text-zinc-400' : 'bg-primary-500/10 text-primary-500'
-                          }`}>
-                            {student.placementStatus.replace(/_/g, ' ')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2 text-right flex items-center justify-end gap-2">
-                          {student.lastLoginAt ? (
-                            <span className="px-2 py-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded uppercase font-mono tracking-wider">
-                              Logged In
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm whitespace-nowrap bg-zinc-950">
+                    <thead className="bg-zinc-950 sticky top-0 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-500 font-medium">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">Name</th>
+                        <th className="px-4 py-2 font-medium">Email</th>
+                        <th className="px-4 py-2 font-medium">Roll No</th>
+                        <th className="px-4 py-2 font-medium text-right">CGPA</th>
+                        <th className="px-4 py-2 font-medium text-right">Status</th>
+                        <th className="px-4 py-2 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/50 bg-zinc-950">
+                      {students.map(student => (
+                        <tr key={student._id} className={`hover:bg-zinc-900/50 transition-colors ${student.isActive === false ? 'opacity-50' : ''}`}>
+                          <td className="px-4 py-2 font-medium text-zinc-200">{student.name}</td>
+                          <td className="px-4 py-2 text-zinc-500">{student.email}</td>
+                          <td className="px-4 py-2 font-mono text-xs text-zinc-400">{student.rollNumber || '-'}</td>
+                          <td className="px-4 py-2 text-right font-mono text-zinc-300">{student.cgpa || '-'}</td>
+                          <td className="px-4 py-2 text-right">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
+                              student.placementStatus === 'not_placed' ? 'bg-zinc-800 text-zinc-400' : 'bg-primary-500/10 text-primary-500'
+                            }`}>
+                              {student.placementStatus.replace(/_/g, ' ')}
                             </span>
-                          ) : (
+                          </td>
+                          <td className="px-4 py-2 text-right flex items-center justify-end gap-2">
+                            {student.lastLoginAt ? (
+                              <span className="px-2 py-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded uppercase font-mono tracking-wider">
+                                Logged In
+                              </span>
+                            ) : (
+                              <button 
+                                onClick={async () => {
+                                  try {
+                                    await axios.post(`/batches/students/${student._id}/send-login`);
+                                    setStudents(students.map(s => s._id === student._id ? { ...s, loginEmailSent: true } : s));
+                                    alert('Login email dispatched.');
+                                  } catch(e) {
+                                    alert(e.response?.data?.error || 'Failed to send email.');
+                                  }
+                                }}
+                                disabled={student.loginEmailSent}
+                                className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              >
+                                {student.loginEmailSent ? 'Mail Sent' : 'Send Login'}
+                              </button>
+                            )}
                             <button 
                               onClick={async () => {
                                 try {
-                                  await axios.post(`/batches/students/${student._id}/send-login`);
-                                  setStudents(students.map(s => s._id === student._id ? { ...s, loginEmailSent: true } : s));
-                                  alert('Login email dispatched.');
+                                  await axios.put(`/batches/students/${student._id}/status`);
+                                  setStudents(students.map(s => s._id === student._id ? { ...s, isActive: s.isActive === false ? true : false } : s));
                                 } catch(e) {
-                                  alert(e.response?.data?.error || 'Failed to send email.');
+                                  alert('Failed to update status.');
                                 }
                               }}
-                              disabled={student.loginEmailSent}
-                              className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                              className={`px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded ${
+                                student.isActive !== false ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                              }`}
                             >
-                              {student.loginEmailSent ? 'Mail Sent' : 'Send Login'}
+                              {student.isActive !== false ? 'Deactivate' : 'Activate'}
                             </button>
-                          )}
-                          <button 
-                            onClick={async () => {
-                              try {
-                                await axios.put(`/batches/students/${student._id}/status`);
-                                setStudents(students.map(s => s._id === student._id ? { ...s, isActive: s.isActive === false ? true : false } : s));
-                              } catch(e) {
-                                alert('Failed to update status.');
-                              }
-                            }}
-                            className={`px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded ${
-                              student.isActive !== false ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                            }`}
-                          >
-                            {student.isActive !== false ? 'Deactivate' : 'Activate'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 <div className="h-full flex items-center justify-center text-zinc-500 text-sm flex-col gap-2">
                   <span>0 records found.</span>
@@ -296,6 +382,15 @@ const Batches = () => {
                 </div>
               )}
             </div>
+
+            <Pagination 
+              page={page}
+              pages={totalPages}
+              limit={limit}
+              total={totalStudents}
+              onPageChange={setPage}
+              onLimitChange={setLimit}
+            />
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-zinc-600 text-sm">

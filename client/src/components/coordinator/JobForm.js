@@ -150,24 +150,27 @@ const JobForm = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-zinc-950 border border-zinc-800 rounded p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="col-span-2 md:col-span-1">
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Job Title</label>
+            <label htmlFor="title" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Job Title</label>
             <input 
+              id="title"
               required name="title" value={formData.title} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="e.g. Software Engineer"
             />
           </div>
           <div className="col-span-2 md:col-span-1">
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Company</label>
+            <label htmlFor="company" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Company</label>
             <input 
+              id="company"
               required name="company" value={formData.company} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="e.g. Google"
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Description</label>
+            <label htmlFor="description" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Description</label>
             <textarea 
+              id="description"
               required name="description" value={formData.description} onChange={handleChange} rows="6"
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700 resize-y"
               placeholder="Paste raw JD..."
@@ -175,31 +178,35 @@ const JobForm = () => {
           </div>
           
           <div>
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">CTC</label>
+            <label htmlFor="ctc" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">CTC</label>
             <input 
+              id="ctc"
               name="ctc" value={formData.ctc} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="12 LPA"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Location</label>
+            <label htmlFor="location" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Location</label>
             <input 
+              id="location"
               name="location" value={formData.location} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
               placeholder="Bangalore"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Deadline</label>
+            <label htmlFor="deadline" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Deadline</label>
             <input 
+              id="deadline"
               type="date" name="deadline" value={formData.deadline} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min CGPA</label>
+            <label htmlFor="eligibility-minCgpa" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min CGPA</label>
             <input 
+              id="eligibility-minCgpa"
               type="number" step="0.1" name="eligibility.minCgpa" value={formData.eligibility.minCgpa} onChange={handleChange}
               className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
             />
@@ -208,31 +215,35 @@ const JobForm = () => {
             <h3 className="text-sm font-medium text-zinc-300 mb-4">Eligibility Filters</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Max Active Backlogs</label>
+                <label htmlFor="eligibility-maxActiveBacklogs" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Max Active Backlogs</label>
                 <input 
+                  id="eligibility-maxActiveBacklogs"
                   type="number" name="eligibility.maxActiveBacklogs" value={formData.eligibility.maxActiveBacklogs} onChange={handleChange}
                   className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
                 />
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 10th %</label>
+                  <label htmlFor="eligibility-minTenthPercent" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 10th %</label>
                   <input 
+                    id="eligibility-minTenthPercent"
                     type="number" name="eligibility.minTenthPercent" value={formData.eligibility.minTenthPercent} onChange={handleChange}
                     className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 12th %</label>
+                  <label htmlFor="eligibility-minTwelfthPercent" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Min 12th %</label>
                   <input 
+                    id="eligibility-minTwelfthPercent"
                     type="number" name="eligibility.minTwelfthPercent" value={formData.eligibility.minTwelfthPercent} onChange={handleChange}
                     className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm font-mono text-zinc-100 focus:outline-none focus:border-zinc-700"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Target Branches</label>
+                <label htmlFor="eligibility-branches" className="block text-xs font-medium text-zinc-400 uppercase tracking-widest mb-1.5">Target Branches</label>
                 <input 
+                  id="eligibility-branches"
                   type="text" name="eligibility.branches" value={formData.eligibility.branches} onChange={handleChange}
                   className="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded text-sm text-zinc-100 focus:outline-none focus:border-zinc-700"
                   placeholder="CSE, ECE"

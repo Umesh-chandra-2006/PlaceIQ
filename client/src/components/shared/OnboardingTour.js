@@ -134,6 +134,7 @@ const OnboardingTour = ({ role }) => {
       }, 1000);
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
   // Listener to restart tour if custom event or localStorage gets cleared
@@ -156,6 +157,7 @@ const OnboardingTour = ({ role }) => {
       window.removeEventListener('storage', checkRestart);
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, isActive]);
 
   const activeStep = steps[currentStepIndex];

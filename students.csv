@@ -1,6 +1,0 @@
-Name,Email,password,Branch,Department,Section,RollNumber,Year,CGPA,TenthPercent,TwelfthPercent,ActiveBacklogs,Backlogs
-Rahul Kumar,rahul.kumar@anurag.edu.in,student123,CSE,CSE,A,22EG105001,2026,8.5,85,90,0,0
-Sneha Sharma,sneha.sharma@anurag.edu.in,student123,ECE,ECE,B,22EG105002,2026,7.8,80,82,1,1
-Vikram Reddy,vikram.reddy@anurag.edu.in,student123,CSE,CSE,A,22EG105003,2026,9.1,95,96,0,0
-Ayesha Khan,ayesha.khan@anurag.edu.in,student123,MECH,MECH,C,22EG105004,2026,6.5,70,72,2,3
-Rohan Gupta,rohan.gupta@anurag.edu.in,student123,IT,IT,A,22EG105005,2026,8.9,88,89,0,0

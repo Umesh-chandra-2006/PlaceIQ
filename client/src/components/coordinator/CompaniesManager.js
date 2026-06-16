@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { 
   Building, Plus, Edit2, Search, Calendar, Phone, Mail, User, 
-  ChevronDown, X, Loader2, Save, FileText, CheckCircle, Clock, AlertTriangle 
+  X, Loader2, Save
 } from 'lucide-react';
 
 const CompaniesManager = () => {
@@ -35,8 +35,8 @@ const CompaniesManager = () => {
   const fetchCompanies = async () => {
     setLoading(true);
     try {
-      const { data } = await axios.get('/companies');
-      setCompanies(data);
+      const { data } = await axios.get('/companies?limit=1000');
+      setCompanies(data && data.data ? data.data : (Array.isArray(data) ? data : []));
     } catch (error) {
       console.error("Error fetching companies:", error);
     } finally {

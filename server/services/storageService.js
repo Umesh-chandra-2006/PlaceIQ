@@ -1,36 +1,33 @@
 /**
  * Storage Service
- * Handles uploading file buffers to either AWS S3 (in production) 
+ * Handles uploading file buffers to Cloudinary (in production/when configured)
  * or a local uploads folder (for development and backup fallback).
  */
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const cloudinary = require("cloudinary").v2;
 const path = require("path");
 const fs = require("fs");
+const { ALLOWED_FILE_EXTENSIONS } = require("../config/constants");
 
-let s3Client = null;
-const bucketName = process.env.AWS_S3_BUCKET_NAME;
-const region = process.env.AWS_REGION;
+let isCloudinaryConfigured = false;
 
 if (
-  process.env.AWS_ACCESS_KEY_ID &&
-  process.env.AWS_SECRET_ACCESS_KEY &&
-  bucketName &&
-  region
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
 ) {
-  s3Client = new S3Client({
-    region: region,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
   });
-  console.log("Storage Service: AWS S3 client configured successfully.");
+  isCloudinaryConfigured = true;
+  console.log("Storage Service: Cloudinary configured successfully.");
 } else {
-  console.log("Storage Service: AWS S3 env variables missing. Falling back to local storage.");
+  console.log("Storage Service: Cloudinary env variables missing. Falling back to local storage.");
 }
 
 /**
- * Uploads a file buffer to AWS S3 or local filesystem.
+ * Uploads a file buffer to Cloudinary or local filesystem.
  * 
  * @param {Buffer} fileBuffer - File contents buffer
  * @param {string} originalName - Original uploaded filename
@@ -39,25 +36,36 @@ if (
  * @returns {Promise<string>} - The public URL or path of the uploaded file
  */
 const uploadFile = async (fileBuffer, originalName, prefix, customId) => {
-  const extension = path.extname(originalName) || ".pdf";
+  // Sanitize filename to prevent path traversal
+  const safeName = path.basename(originalName).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const extension = path.extname(safeName) || '.pdf';
+
+  // Validate extension
+  if (!ALLOWED_FILE_EXTENSIONS.includes(extension.toLowerCase())) {
+    throw new Error(`File type ${extension} not allowed. Allowed: ${ALLOWED_FILE_EXTENSIONS.join(', ')}`);
+  }
+
   const uniqueName = `${prefix}-${customId}-${Date.now()}${extension}`;
 
-  if (s3Client) {
-    const key = `${prefix}/${uniqueName}`;
+  if (isCloudinaryConfigured) {
     try {
-      await s3Client.send(
-        new PutObjectCommand({
-          Bucket: bucketName,
-          Key: key,
-          Body: fileBuffer,
-          ContentType: "application/pdf",
-        })
-      );
-      // Return public S3 URL
-      return `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: `placeiq/${prefix}`,
+            public_id: uniqueName.replace(extension, ''), // Cloudinary strips extension from public_id when uploading
+            resource_type: "raw",
+          },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(fileBuffer);
+      });
+      return result.secure_url;
     } catch (err) {
-      console.error("AWS S3 Upload Error, attempting local backup:", err);
-      // Fallback to local if S3 fails
+      console.error("Cloudinary Upload Error, attempting local backup:", err);
       return saveLocally(fileBuffer, uniqueName);
     }
   } else {
@@ -80,5 +88,6 @@ const saveLocally = async (buffer, uniqueName) => {
 
 module.exports = {
   uploadFile,
-  isS3Active: () => !!s3Client,
+  isCloudinaryActive: () => isCloudinaryConfigured,
+  isS3Active: () => isCloudinaryConfigured, // Backwards compatibility if needed
 };

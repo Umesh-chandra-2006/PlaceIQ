@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Loader2, Lock, Mail, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -52,12 +52,13 @@ const Login = () => {
             )}
             
             <div>
-              <label className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-1.5">Email Address</label>
+              <label htmlFor="email" className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-1.5">Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Mail className="h-4 w-4 text-zinc-500" />
                 </div>
                 <input
+                  id="email"
                   type="email" 
                   required 
                   value={email} 
@@ -69,12 +70,16 @@ const Login = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider mb-1.5">Password</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase text-zinc-400 tracking-wider">Password</label>
+                <Link to="/forgot-password" className="text-xs font-semibold text-primary-400 hover:text-primary-300 transition-colors">Forgot?</Link>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Lock className="h-4 w-4 text-zinc-500" />
                 </div>
                 <input
+                  id="password"
                   type={showPassword ? 'text' : 'password'} 
                   required 
                   value={password} 

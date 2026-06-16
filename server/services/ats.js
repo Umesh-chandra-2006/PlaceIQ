@@ -1,5 +1,43 @@
-const axios = require('axios');
-const keywordExtractor = require('keyword-extractor');
+const axios = require("axios");
+const keywordExtractor = require("keyword-extractor");
+
+// Synonym mapping to improve ATS keyword matching accuracy
+const SYNONYMS = {
+  "js": ["javascript"],
+  "javascript": ["js"],
+  "ts": ["typescript"],
+  "typescript": ["ts"],
+  "py": ["python"],
+  "python": ["py"],
+  "ml": ["machine learning"],
+  "machine learning": ["ml"],
+  "ai": ["artificial intelligence"],
+  "artificial intelligence": ["ai"],
+  "aws": ["amazon web services"],
+  "amazon web services": ["aws"],
+  "gcp": ["google cloud platform"],
+  "google cloud platform": ["gcp"],
+  "k8s": ["kubernetes"],
+  "kubernetes": ["k8s"],
+  "ci/cd": ["continuous integration", "ci-cd"],
+  "continuous integration": ["ci/cd", "ci-cd"]
+};
+
+/**
+ * Checks if a keyword matches the resume, taking synonyms into account.
+ */
+const checkKeywordMatch = (resumeLower, keyword) => {
+  const kw = keyword.toLowerCase();
+  if (resumeLower.includes(kw)) return true;
+
+  const syns = SYNONYMS[kw];
+  if (syns) {
+    for (const syn of syns) {
+      if (resumeLower.includes(syn)) return true;
+    }
+  }
+  return false;
+};
 
 exports.calculateRuleBasedScore = (resumeText, jobDescription) => {
   if (!resumeText || !jobDescription) return 0;
@@ -12,20 +50,29 @@ exports.calculateRuleBasedScore = (resumeText, jobDescription) => {
     remove_duplicates: true
   });
   
-  if (jdKeywords.length === 0) return 0;
+  const genericWords = new Set([
+    "required", "looking", "experience", "years", "work", "engineering", 
+    "candidate", "role", "team", "strong", "good", "ability", "skills", 
+    "job", "position", "company", "description", "plus", "must", "have", 
+    "with", "from", "their", "will", "this", "that", "highly", "successful",
+    "excel", "excellent", "written", "verbal", "communication", "working"
+  ]);
+  
+  const filteredKeywords = jdKeywords.filter(k => k.length > 2 && !genericWords.has(k.toLowerCase()));
+  
+  if (filteredKeywords.length === 0) return 0;
 
   const resumeLower = resumeText.toLowerCase();
   
   let matchCount = 0;
-  jdKeywords.forEach(keyword => {
-    if (resumeLower.includes(keyword)) {
+  filteredKeywords.forEach(keyword => {
+    if (checkKeywordMatch(resumeLower, keyword)) {
       matchCount++;
     }
   });
 
-  const rawScore = (matchCount / jdKeywords.length) * 100;
-  // Boost score slightly but cap at 100
-  return Math.min(Math.round(rawScore * 1.5), 100);
+  const rawScore = (matchCount / filteredKeywords.length) * 100;
+  return Math.round(rawScore);
 };
 
 exports.performAiReview = async (resumeText, jobDescription) => {
@@ -77,7 +124,7 @@ ${resumeText}
     
     try {
       const score = exports.calculateRuleBasedScore(resumeText, jobDescription);
-      const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+      const grade = score >= 85 ? "A" : score >= 70 ? "B" : score >= 55 ? "C" : score >= 40 ? "D" : "F";
       
       const jdKeywords = keywordExtractor.extract(jobDescription, {
         language: "english",
@@ -86,9 +133,18 @@ ${resumeText}
         remove_duplicates: true
       });
       
+      const genericWords = new Set([
+        "required", "looking", "experience", "years", "work", "engineering", 
+        "candidate", "role", "team", "strong", "good", "ability", "skills", 
+        "job", "position", "company", "description", "plus", "must", "have", 
+        "with", "from", "their", "will", "this", "that", "highly", "successful",
+        "excel", "excellent", "written", "verbal", "communication", "working"
+      ]);
+      
+      const filteredKeywords = jdKeywords.filter(k => k.length > 2 && !genericWords.has(k.toLowerCase()));
       const resumeLower = resumeText.toLowerCase();
-      const matchedKeywords = jdKeywords.filter(k => resumeLower.includes(k.toLowerCase())).slice(0, 8);
-      const missingKeywords = jdKeywords.filter(k => !resumeLower.includes(k.toLowerCase())).slice(0, 8);
+      const matchedKeywords = filteredKeywords.filter(k => checkKeywordMatch(resumeLower, k)).slice(0, 8);
+      const missingKeywords = filteredKeywords.filter(k => !checkKeywordMatch(resumeLower, k)).slice(0, 8);
       
       return {
         score,

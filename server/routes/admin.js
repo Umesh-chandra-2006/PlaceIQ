@@ -11,7 +11,7 @@ const { requireRole } = require("../middleware/requireRole");
 // @route   POST /api/admin/colleges
 router.post("/colleges", protect, requireRole("superadmin"), async (req, res) => {
   try {
-    const { name, licenceStatus, adminName, adminEmail } = req.body;
+    const { name, licenceStatus, adminName, adminEmail, aiReviewQuota } = req.body;
     // Sanitize: strip any accidental leading '@' the super-admin may have typed
     const emailDomain = (req.body.emailDomain || '').replace(/^@+/, '').trim().toLowerCase();
 
@@ -53,7 +53,8 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
     const college = await College.create({
       name,
       emailDomain,
-      licenceStatus: licenceStatus || "free"
+      licenceStatus: licenceStatus || "free",
+      aiReviewQuota: aiReviewQuota !== undefined ? Number(aiReviewQuota) : 3
     });
 
     const setupToken = crypto.randomBytes(20).toString("hex");
@@ -90,11 +91,14 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
 // @route   PUT /api/admin/colleges/:id/upgrade
 router.put("/colleges/:id/upgrade", protect, requireRole("superadmin"), async (req, res) => {
   try {
-    const { licenceStatus } = req.body;
-    const status = licenceStatus || "paid";
+    const { licenceStatus, aiReviewQuota } = req.body;
+    const update = {};
+    if (licenceStatus !== undefined) update.licenceStatus = licenceStatus;
+    if (aiReviewQuota !== undefined) update.aiReviewQuota = Number(aiReviewQuota);
+
     const college = await College.findByIdAndUpdate(
       req.params.id, 
-      { licenceStatus: status }, 
+      update, 
       { new: true }
     );
     res.json(college);

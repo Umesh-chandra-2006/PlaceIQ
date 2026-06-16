@@ -12,9 +12,13 @@ const { scrapeUnstop } = require("../services/scraper");
 const { broadcastJob } = require("../services/broadcast");
 const { calculateRuleBasedScore, performAiReview } = require("../services/ats");
 const AtsScore = require("../models/AtsScore");
+const College = require("../models/College");
+const paginate = require("../middleware/paginate");
+const { enforceOnboarding } = require("../middleware/onboarded");
+const { logAudit } = require("../middleware/auditLogger");
 
 // @route   GET /api/jobs
-router.get("/", protect, async (req, res) => {
+router.get("/", protect, paginate(), async (req, res) => {
   try {
     let query = { collegeId: req.user.collegeId };
 
@@ -160,11 +164,31 @@ router.get("/", protect, async (req, res) => {
         return jobObj;
       });
 
-      return res.json(jobsWithScores);
+      const total = jobsWithScores.length;
+      const paginatedJobs = jobsWithScores.slice(req.pagination.skip, req.pagination.skip + req.pagination.limit);
+
+      return res.json({
+        total,
+        page: req.pagination.page,
+        limit: req.pagination.limit,
+        pages: Math.ceil(total / req.pagination.limit),
+        data: paginatedJobs
+      });
     }
 
-    const jobs = await Job.find(query).sort({ createdAt: -1 });
-    res.json(jobs);
+    const total = await Job.countDocuments(query);
+    const jobs = await Job.find(query)
+      .sort({ createdAt: -1 })
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+
+    res.json({
+      total,
+      page: req.pagination.page,
+      limit: req.pagination.limit,
+      pages: Math.ceil(total / req.pagination.limit),
+      data: jobs
+    });
   } catch (error) {
     console.error("API Error:", error);
     res.status(500).json({ error: "An internal server error occurred" });
@@ -190,6 +214,7 @@ router.post("/", protect, requireRole("coordinator"), async (req, res) => {
       collegeId: req.user.collegeId,
       postedBy: req.user._id
     });
+    await logAudit(req, "CREATE_JOB", "Job", job._id, { title: job.title, company: job.company });
     res.status(201).json(job);
   } catch (error) {
     console.error("API Error:", error);
@@ -287,20 +312,25 @@ router.post("/:id/broadcast", protect, requireRole("coordinator"), requirePaid, 
 });
 
 // @route   POST /api/jobs/:id/ai-review
-router.post("/:id/ai-review", protect, async (req, res) => {
+router.post("/:id/ai-review", protect, enforceOnboarding, async (req, res) => {
   try {
     const student = await User.findById(req.user.id);
     if (!student || student.role !== "student") return res.status(403).json({ error: "Only students can use AI Review" });
     
     // Check quota
+    const college = await College.findById(student.collegeId);
+    const quotaLimit = college?.aiReviewQuota ?? 3;
+    
     const now = new Date();
-    if (student.aiReviewResetDate && now > student.aiReviewResetDate) {
+    if (!student.aiReviewResetDate) {
+      student.aiReviewResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    } else if (now > student.aiReviewResetDate) {
       student.aiReviewsUsed = 0;
       student.aiReviewResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     }
     
-    if (student.aiReviewsUsed >= 3) {
-      return res.status(403).json({ error: "AI Review quota exceeded (3/3). Resets next month." });
+    if (student.aiReviewsUsed >= quotaLimit) {
+      return res.status(403).json({ error: `AI Review quota exceeded (${quotaLimit}/${quotaLimit}). Resets next month.` });
     }
 
     if (!student.resumeText) {
@@ -368,6 +398,7 @@ router.put("/:id", protect, requireRole("coordinator"), async (req, res) => {
     if (req.body.ctc !== undefined) job.stipend = req.body.ctc;
 
     await job.save();
+    await logAudit(req, "UPDATE_JOB", "Job", job._id, { title: job.title, company: job.company, changes: req.body });
     res.json(job);
   } catch (error) {
     console.error("API Error updating job:", error);
@@ -382,6 +413,7 @@ router.delete("/:id", protect, requireRole("coordinator"), async (req, res) => {
     const job = await Job.findOneAndDelete({ _id: req.params.id, collegeId: req.user.collegeId });
     if (!job) return res.status(404).json({ error: "Job not found" });
 
+    await logAudit(req, "DELETE_JOB", "Job", job._id, { title: job.title, company: job.company });
     res.json({ message: "Job deleted successfully" });
   } catch (error) {
     console.error("API Error deleting job:", error);

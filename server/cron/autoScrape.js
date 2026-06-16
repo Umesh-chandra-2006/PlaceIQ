@@ -64,10 +64,21 @@ const runAutoScrape = async () => {
     console.log("[CRON] Auto-scrape completed.");
   } catch (error) {
     console.error("[CRON] Auto-scrape error:", error);
+    try {
+      const adminEmail = process.env.ALERT_EMAIL || process.env.SEED_ADMIN_EMAIL || 'admin@gmail.com';
+      if (adminEmail) {
+        await sendEmail(adminEmail, 'PlaceIQ: Auto-scrape FAILED', `The auto-scrape cron job encountered an error: ${error.message}\n\nStack Trace:\n${error.stack}`);
+      }
+    } catch (e) {
+      console.error("[CRON] Failed to send auto-scrape error email:", e.message);
+    }
   }
 };
 
-// Run every day at 7:00 AM
-cron.schedule("0 7 * * *", runAutoScrape);
+const setupAutoScrape = () => {
+  // Run every day at 7:00 AM
+  cron.schedule("0 7 * * *", runAutoScrape);
+};
 
-module.exports = runAutoScrape;
+module.exports = setupAutoScrape;
+

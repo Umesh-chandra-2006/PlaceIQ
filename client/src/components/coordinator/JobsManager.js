@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import JobDetailsDrawer from '../shared/JobDetailsDrawer';
+import Pagination from '../shared/Pagination';
 import { Plus, Search, Trash2, Eye, EyeOff } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const JobsManager = () => {
-  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -14,14 +14,18 @@ const JobsManager = () => {
   const [showScrapeModal, setShowScrapeModal] = useState(false);
   const [scrapedData, setScrapedData] = useState(null);
   const [scrapeUrl, setScrapeUrl] = useState('');
-  const [activeDropdownId, setActiveDropdownId] = useState(null);
+
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
 
   const toggleJobStatus = async (jobId, currentStatus) => {
     try {
       const newStatus = currentStatus === 'active' ? 'closed' : 'active';
       await axios.put(`/jobs/${jobId}`, { status: newStatus });
       setJobs(jobs.map(j => j._id === jobId ? { ...j, status: newStatus } : j));
-      setActiveDropdownId(null);
     } catch (error) {
       alert("Failed to toggle status");
     }
@@ -32,29 +36,49 @@ const JobsManager = () => {
     try {
       await axios.delete(`/jobs/${jobId}`);
       setJobs(jobs.filter(j => j._id !== jobId));
-      setActiveDropdownId(null);
     } catch (error) {
       alert("Failed to delete job");
     }
   };
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const { data } = await axios.get(`/jobs?search=${search}`);
-        setJobs(data);
-      } catch (error) {
-        console.error("Error fetching jobs", error);
-      } finally {
-        setLoading(false);
+  const fetchJobs = async (signal) => {
+    setLoading(true);
+    try {
+      const { data } = await axios.get(`/jobs?search=${search}&page=${page}&limit=${limit}`, { signal });
+      if (data && data.data) {
+        setJobs(data.data);
+        setTotalPages(data.pages || 1);
+        setTotalJobs(data.total || 0);
+      } else {
+        setJobs(Array.isArray(data) ? data : []);
+        setTotalPages(1);
+        setTotalJobs(Array.isArray(data) ? data.length : 0);
       }
-    };
+    } catch (error) {
+      if (axios.isCancel(error)) return;
+      console.error("Error fetching jobs", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const delayDebounceFn = setTimeout(() => {
-      fetchJobs();
+      fetchJobs(controller.signal);
     }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [search]);
+    return () => {
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page, limit]);
+
 
   return (
     <div className="space-y-4 text-zinc-100">
@@ -90,72 +114,82 @@ const JobsManager = () => {
       </div>
 
       <div className="border border-zinc-800 rounded overflow-hidden bg-zinc-950">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-zinc-900 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-400 font-medium">
-            <tr>
-              <th className="px-4 py-2 font-medium">ID</th>
-              <th className="px-4 py-2 font-medium">Company</th>
-              <th className="px-4 py-2 font-medium">Role</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium text-right">CTC</th>
-              <th className="px-4 py-2 font-medium text-right">Applications</th>
-              <th className="px-4 py-2 font-medium text-right">Deadline</th>
-              <th className="px-4 py-2"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/50">
-            {loading ? (
-              <tr><td colSpan="8" className="px-4 py-8 text-center text-zinc-500">Loading...</td></tr>
-            ) : jobs.length === 0 ? (
-              <tr><td colSpan="8" className="px-4 py-8 text-center text-zinc-500">0 listings active. <Link to="/coordinator/jobs/new" className="text-primary-500 hover:underline">Create Job</Link></td></tr>
-            ) : jobs.map((job) => (
-              <tr 
-                key={job._id} 
-                onClick={() => setSelectedJob(job)}
-                className="hover:bg-zinc-900/50 transition-colors group cursor-pointer"
-              >
-                <td className="px-4 py-2 font-mono text-xs text-zinc-500">{job._id.slice(-6).toUpperCase()}</td>
-                <td className="px-4 py-2 font-medium text-zinc-200">{job.company}</td>
-                <td className="px-4 py-2 text-zinc-400 truncate max-w-[200px]">{job.title}</td>
-                <td className="px-4 py-2">
-                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase ${
-                    job.status === 'active' ? 'bg-primary-500/10 text-primary-500' : 
-                    job.status === 'closed' ? 'bg-red-500/10 text-red-500' : 'bg-zinc-800 text-zinc-400'
-                  }`}>
-                    {job.status}
-                  </span>
-                </td>
-                <td className="px-4 py-2 text-right font-mono text-zinc-300">{job.stipend || job.ctc || '—'}</td>
-                <td className="px-4 py-2 text-right font-mono text-zinc-300">{job.applicationCount || 0}</td>
-                <td className="px-4 py-2 text-right font-mono text-zinc-400">
-                  {job.deadline && !isNaN(new Date(job.deadline))
-                    ? new Date(job.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                    : '—'}
-                </td>
-                <td className="px-4 py-2 text-right flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    onClick={() => toggleJobStatus(job._id, job.status)}
-                    title={job.status === 'active' ? 'Close Listing' : 'Activate Listing'}
-                    className={`p-1.5 rounded transition-colors ${
-                      job.status === 'active' 
-                        ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' 
-                        : 'text-primary-500 hover:bg-primary-950/20 hover:text-primary-400'
-                    }`}
-                  >
-                    {job.status === 'active' ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                  <button 
-                    onClick={() => deleteJob(job._id)}
-                    title="Delete Job"
-                    className="p-1.5 text-red-500 hover:bg-red-950/20 hover:text-red-400 rounded transition-colors"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-zinc-900 border-b border-zinc-800 text-xs uppercase tracking-wider text-zinc-400 font-medium">
+              <tr>
+                <th className="px-4 py-2 font-medium">ID</th>
+                <th className="px-4 py-2 font-medium">Company</th>
+                <th className="px-4 py-2 font-medium">Role</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium text-right">CTC</th>
+                <th className="px-4 py-2 font-medium text-right">Applications</th>
+                <th className="px-4 py-2 font-medium text-right">Deadline</th>
+                <th className="px-4 py-2"></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/50">
+              {loading ? (
+                <tr><td colSpan="8" className="px-4 py-8 text-center text-zinc-500">Loading...</td></tr>
+              ) : jobs.length === 0 ? (
+                <tr><td colSpan="8" className="px-4 py-8 text-center text-zinc-500">0 listings active. <Link to="/coordinator/jobs/new" className="text-primary-500 hover:underline">Create Job</Link></td></tr>
+              ) : jobs.map((job) => (
+                <tr 
+                  key={job._id} 
+                  onClick={() => setSelectedJob(job)}
+                  className="hover:bg-zinc-900/50 transition-colors group cursor-pointer"
+                >
+                  <td className="px-4 py-2 font-mono text-xs text-zinc-500">{job._id.slice(-6).toUpperCase()}</td>
+                  <td className="px-4 py-2 font-medium text-zinc-200">{job.company}</td>
+                  <td className="px-4 py-2 text-zinc-400 truncate max-w-[200px]">{job.title}</td>
+                  <td className="px-4 py-2">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium uppercase ${
+                      job.status === 'active' ? 'bg-primary-500/10 text-primary-500' : 
+                      job.status === 'closed' ? 'bg-red-500/10 text-red-500' : 'bg-zinc-800 text-zinc-400'
+                    }`}>
+                      {job.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-zinc-300">{job.stipend || job.ctc || '—'}</td>
+                  <td className="px-4 py-2 text-right font-mono text-zinc-300">{job.applicationCount || 0}</td>
+                  <td className="px-4 py-2 text-right font-mono text-zinc-400">
+                    {job.deadline && !isNaN(new Date(job.deadline))
+                      ? new Date(job.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : '—'}
+                  </td>
+                  <td className="px-4 py-2 text-right flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                      onClick={() => toggleJobStatus(job._id, job.status)}
+                      title={job.status === 'active' ? 'Close Listing' : 'Activate Listing'}
+                      className={`p-1.5 rounded transition-colors ${
+                        job.status === 'active' 
+                          ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' 
+                          : 'text-primary-500 hover:bg-primary-955/20 hover:text-primary-405'
+                      }`}
+                    >
+                      {job.status === 'active' ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                    <button 
+                      onClick={() => deleteJob(job._id)}
+                      title="Delete Job"
+                      className="p-1.5 text-red-500 hover:bg-red-955/20 hover:text-red-405 rounded transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <Pagination 
+          page={page}
+          pages={totalPages}
+          limit={limit}
+          total={totalJobs}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
       </div>
 
       {selectedJob && (

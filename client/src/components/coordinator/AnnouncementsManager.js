@@ -23,10 +23,11 @@ const AnnouncementsManager = () => {
     try {
       const [annRes, batchRes] = await Promise.all([
         axios.get('/announcements'),
-        axios.get('/batches')
+        axios.get('/batches?limit=1000')
       ]);
       setAnnouncements(annRes.data);
-      setBatches(batchRes.data);
+      const bData = batchRes.data;
+      setBatches(bData && bData.data ? bData.data : (Array.isArray(bData) ? bData : []));
     } catch (error) {
       console.error(error);
     } finally {

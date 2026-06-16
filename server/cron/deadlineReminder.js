@@ -17,18 +17,37 @@ const setupDeadlineReminders = () => {
         status: "active" 
       });
 
+      const Notification = require("../models/Notification");
       for (const job of jobs) {
-        // Find students who haven't applied yet but are eligible? 
-        // Or remind those who have applied about upcoming rounds?
-        // Specification says: "remind those who have applied"
         const applications = await Application.find({ jobId: job._id })
           .populate("studentId", "email name");
 
         for (const app of applications) {
           if (!app.studentId) continue;
+
+          const title = `Deadline approaching: ${job.company}`;
+          
+          // Prevent duplicates (sent in the last 24 hours)
+          const alreadySent = await Notification.findOne({
+            userId: app.studentId._id,
+            title: title,
+            createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          });
+          if (alreadySent) continue;
+
           const subject = `Reminder: Deadline approaching for ${job.company}`;
           const text = `Hi ${app.studentId.name}, the deadline for ${job.title} at ${job.company} is approaching on ${job.deadline.toDateString()}.`;
+          
           await sendEmail(app.studentId.email, subject, text);
+
+          // Log in DB to prevent duplicate and show in dashboard
+          await Notification.create({
+            userId: app.studentId._id,
+            collegeId: job.collegeId,
+            title: title,
+            message: text,
+            type: "general"
+          });
         }
       }
     } catch (error) {

@@ -21,7 +21,8 @@ const Onboarding = () => {
     cgpa: '',
     tenthPercent: '',
     twelfthPercent: '',
-    activeBacklogs: 0
+    activeBacklogs: 0,
+    phone: ''
   });
 
   const [selectedSkills, setSelectedSkills] = useState([]);
@@ -30,18 +31,32 @@ const Onboarding = () => {
   const [file, setFile] = useState(null);
 
   useEffect(() => {
-    const fetchConfig = async () => {
+    const fetchConfigAndProfile = async () => {
       try {
-        const { data } = await axios.get('/students/college-config');
-        setCollegeConfig(data);
-        if (data.departments?.length > 0) {
-          setFormData(prev => ({ ...prev, department: data.departments[0] }));
-        }
+        const [configRes, profileRes] = await Promise.all([
+          axios.get('/students/college-config'),
+          axios.get('/students/me')
+        ]);
+        
+        const config = configRes.data;
+        const profile = profileRes.data;
+        
+        setCollegeConfig(config);
+        setFormData({
+          department: profile.branch || profile.department || (config.departments?.length > 0 ? config.departments[0] : ''),
+          section: profile.section || '',
+          rollNumber: profile.rollNumber || '',
+          cgpa: profile.cgpa || '',
+          tenthPercent: profile.tenthPercent || '',
+          twelfthPercent: profile.twelfthPercent || '',
+          activeBacklogs: profile.activeBacklogs || 0,
+          phone: profile.phone || ''
+        });
       } catch (error) {
-        console.error("Failed to fetch college config", error);
+        console.error("Failed to fetch college config or profile", error);
       }
     };
-    fetchConfig();
+    fetchConfigAndProfile();
   }, []);
 
   const handleNext = () => setStep(step + 1);
@@ -182,6 +197,16 @@ const Onboarding = () => {
                     }
                     setFormData({...formData, cgpa: val});
                   }} 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 mb-1.5 uppercase tracking-wider">Phone Number</label>
+                <input 
+                  type="tel" 
+                  className="w-full px-3 py-2 border border-zinc-800 rounded-md text-sm font-mono focus:outline-none focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 text-zinc-100 bg-zinc-950 placeholder-zinc-600" 
+                  value={formData.phone} 
+                  onChange={e => setFormData({...formData, phone: e.target.value})} 
+                  placeholder="e.g. +91 9876543210" 
                 />
               </div>
             </div>

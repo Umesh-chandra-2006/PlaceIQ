@@ -88,7 +88,7 @@ router.post("/:id/read", protect, async (req, res) => {
     const announcement = await Announcement.findOne({ _id: req.params.id, collegeId: req.user.collegeId });
     if (!announcement) return res.status(404).json({ error: "Not found" });
 
-    if (!announcement.readBy.includes(req.user.id)) {
+    if (!announcement.readBy.some(id => id.toString() === req.user.id)) {
       announcement.readBy.push(req.user.id);
       await announcement.save();
     }

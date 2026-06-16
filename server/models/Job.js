@@ -56,5 +56,7 @@ const jobSchema = new mongoose.Schema({
 
 jobSchema.index({ collegeId: 1, status: 1 });
 jobSchema.index({ deadline: 1 });
+jobSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Job", jobSchema);
+

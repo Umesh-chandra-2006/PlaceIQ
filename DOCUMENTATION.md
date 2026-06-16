@@ -1,174 +1,408 @@
-# PlaceIQ Project Documentation
+# PlaceIQ — Technical Documentation
 
-This document serves as a comprehensive overview of the PlaceIQ platform, detailing the technology stack, core features, database schemas, and RESTful API routes.
+> Last updated: June 14, 2026 · Version 2.0
+
+This document is the comprehensive technical reference for PlaceIQ — a multi-tenant, role-based college placement management platform built on the MERN stack.
 
 ---
 
 ## 1. Technology Stack
 
-PlaceIQ is built on the robust **MERN** stack, augmented with modern integrations for AI and notifications.
-
 ### Frontend
-- **React.js**: Core UI library.
-- **Tailwind CSS**: Utility-first styling for responsive and sleek design.
-- **React Router**: Client-side routing with role-based protected routes.
-- **Lucide React**: Modern iconography.
-- **Axios**: HTTP client for API interactions.
+| Technology | Purpose |
+|---|---|
+| React 18 | Core UI framework with lazy-loaded routes |
+| React Router v6 | Client-side routing with role-based guards |
+| Tailwind CSS v3 | Utility-first styling (custom `zinc` + `emerald` palette) |
+| Lucide React | Modern SVG iconography |
+| Axios | HTTP client with 401 interceptor + auto-logout |
+| react-hot-toast | Global toast notification system |
+| Context API | Auth state (`AuthContext`), theming (`ThemeContext`) |
 
 ### Backend
-- **Node.js & Express.js**: Server runtime and API framework.
-- **MongoDB & Mongoose**: NoSQL database and ODM for flexible schemas.
-- **JWT (JSON Web Tokens)**: Stateless, secure authentication.
-- **Bcrypt.js**: Secure password hashing.
+| Technology | Purpose |
+|---|---|
+| Node.js 18+ & Express.js | API server |
+| MongoDB & Mongoose | Database with indexed schemas + connection pooling |
+| JWT (jsonwebtoken) | Stateless authentication with 7-day expiry |
+| bcryptjs | Password hashing (10-round salt) |
+| Helmet.js | Security headers (CSP, HSTS, X-Frame-Options, etc.) |
+| express-rate-limit | Rate limiting on authentication endpoints |
+| Cloudinary | Cloud-based file storage (resumes, offer letters) |
+| node-cron | Scheduled background jobs |
 
-### Third-Party Integrations
-- **OpenRouter (Nvidia Nemotron-3-Super)**: AI-driven Job Description (JD) summarization.
-- **Twilio**: WhatsApp broadcasting for urgent placement updates (Paid tier).
-- **Nodemailer**: Automated email reminders for upcoming deadlines.
+### Microservices & Integrations
+| Service | Purpose |
+|---|---|
+| ScrapeGraphAI (Python/FastAPI) | LLM-powered web scraping of job descriptions |
+| OpenRouter API (Nvidia Nemotron) | AI-driven JD summarization + student resume deep-review |
+| Twilio API | WhatsApp broadcasting for urgent announcements |
+| Nodemailer | Automated email: deadline reminders, setup links, password resets |
 
----
-
-## 2. Core Features & Role-Based Access
-
-The platform handles three distinct user roles, ensuring secure and segregated access to features.
-
-### A. System Admin
-- **College Provisioning**: Creates and manages College entities, defining their email domains (e.g., `anurag.edu.in`) and licensing tiers (`free` vs `paid`).
-
-### B. Coordinator
-Coordinators manage the placement operations for their college. They are divided into two licensing tiers:
-- **Free Tier (`coordinator_free`)**:
-  - **Job Management**: Create and manage job listings (up to 5 active jobs).
-  - **AI Summarization**: Automatically generate bulleted summaries of long Job Descriptions using OpenRouter.
-  - **Company CRM (Kanban)**: Track recruiting companies through stages (`Prospect` → `Confirmed` → `Visited` → `Closed`).
-  - **Student Roster**: View registered students from their college.
-- **Paid Tier (`coordinator_paid`)**:
-  - **Unlimited Jobs**: Bypass the 5-job limit.
-  - **Analytics Dashboard**: View placement statistics, offer metrics, and engagement graphs.
-  - **WhatsApp Broadcasts**: Send urgent announcements to students via Twilio.
-  - **Automated Scraping**: Scrape Unstop job listings directly into the platform.
-
-### C. Student
-Students sign up using their college email address, which automatically links them to their respective college.
-- **Filtered Job Feed**: View jobs strictly filtered by their eligibility (matching their Branch, Year, and CGPA).
-- **Application Tracker (Kanban)**: Track personal applications through stages (`Applied` → `OA` → `Interview` → `Offer` → `Rejected`).
-- **One-Click Apply**: Apply to eligible jobs seamlessly.
+### DevOps & Tooling
+| Tool | Purpose |
+|---|---|
+| Docker + docker-compose | Containerized deployment (3 services: server, scraper, mongodb) |
+| GitHub Actions CI | Automated testing pipeline |
+| ESLint + Prettier | Code quality and formatting |
+| Jest + Supertest | Backend test suite (22 tests across 6 suites) |
 
 ---
 
-## 3. Database Schemas
+## 2. Architecture Overview
 
-The MongoDB database consists of several core collections exactly matching the original pitch specifications:
+### Multi-Tenant Isolation
+Every data query is scoped by `collegeId`, ensuring complete data isolation between institutions. Cache keys are also college-scoped to prevent data leakage.
 
-### `College`
-- `name` (String)
-- `emailDomain` (String, unique) - e.g., "anurag.edu.in"
-- `licenceStatus` (String) - `enum: ['free', 'paid', 'expired']`
-- `licenceExpiresAt` (Date)
-- `studentCount` (Number)
-- `coordinatorIds` (Array of ObjectIds)
+### Middleware Stack
+Requests flow through a layered middleware chain:
+
+```
+Request → Helmet → CORS → Rate Limiter → JWT Auth (protect)
+        → Role Check (requireRole) → Onboarding Gate (enforceOnboarding)
+        → Pagination (paginate) → Cache (cacheMiddleware)
+        → Route Handler → Audit Logger → Response
+```
+
+| Middleware | File | Purpose |
+|---|---|---|
+| `protect` | `middleware/auth.js` | JWT verification, attaches `req.user` |
+| `requireRole(...)` | `middleware/requireRole.js` | Role-based authorization gate |
+| `enforceOnboarding` | `middleware/onboarded.js` | Blocks students who haven't completed profile setup |
+| `paginate()` | `middleware/paginate.js` | Parses `?page=&limit=`, attaches `req.pagination` |
+| `cacheMiddleware(ttl)` | `middleware/cache.js` | In-memory response cache, college-scoped |
+| `logAudit(...)` | `middleware/auditLogger.js` | Writes audit trail to `AuditLog` collection |
+| `validate(schema)` | `middleware/validate.js` | Request body validation |
+
+### Pagination Response Format
+All paginated endpoints return:
+```json
+{
+  "total": 142,
+  "page": 1,
+  "limit": 20,
+  "pages": 8,
+  "data": [...]
+}
+```
+
+---
+
+## 3. Role-Based Access Control
+
+### Roles & Hierarchy
+| Role | Scope | Provisioned By |
+|---|---|---|
+| `superadmin` | Platform-wide | Seed script |
+| `admin` | Single college | Super Admin |
+| `coordinator` | Single college (free/paid tiers) | College Admin |
+| `student` | Single college, single batch | Coordinator |
+
+### Role Constants
+Defined in `server/config/constants.js`:
+```javascript
+ROLES: { SUPERADMIN, ADMIN, COORDINATOR, STUDENT }
+ALLOWED_FILE_EXTENSIONS: ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
+PAGINATION_DEFAULTS: { DEFAULT_LIMIT: 20, MAX_LIMIT: 100 }
+```
+
+### Coordinator Tiers
+| Feature | Free (`coordinator_free`) | Paid (`coordinator_paid`) |
+|---|---|---|
+| Job postings | 5 max active | Unlimited |
+| AI summarization | ✅ | ✅ |
+| Company CRM | ✅ | ✅ |
+| Analytics dashboard | ❌ | ✅ |
+| WhatsApp broadcasts | ❌ | ✅ |
+| Automated scraping | ❌ | ✅ |
+
+---
+
+## 4. Database Schemas
 
 ### `User`
-- `name`, `email`, `passwordHash`
-- `role` (String) - `enum: ['admin', 'coordinator', 'student']`
-- `subRole` (String) - `enum: ['coordinator_free', 'coordinator_paid']`
-- `collegeId` (ObjectId)
-- **Student specific**: `branch`, `year`, `cgpa`, `phone`, `isPlaced`, `applicationCount`, `backlogs`
+| Field | Type | Notes |
+|---|---|---|
+| `name`, `email` | String | `email` indexed, unique |
+| `passwordHash` | String | bcrypt hashed |
+| `role` | String | `superadmin`, `admin`, `coordinator`, `student` |
+| `subRole` | String | `coordinator_free`, `coordinator_paid` |
+| `collegeId` | ObjectId | Tenant scoping |
+| `isSetup` | Boolean | Account activation status |
+| `setupToken`, `setupTokenExpires` | String, Date | Magic link provisioning |
+| `resetPasswordToken`, `resetPasswordExpires` | String, Date | Password reset flow |
+| `mustChangePassword` | Boolean | Forces first-login password change (students) |
+| `isOnboarded` | Boolean | Profile completion flag (students) |
+| `aiReviewsUsed`, `aiReviewsResetDate` | Number, Date | Rolling 30-day AI quota tracking |
+| `branch`, `year`, `cgpa`, `backlogs`, `phone` | Mixed | Student-specific profile fields |
+| `resumeUrl` | String | Cloudinary URL |
+| **Indexes** | | `{collegeId, role}`, `{email}`, `{setupToken}`, `{resetPasswordToken}` |
 
 ### `Job`
-- `title`, `company`, `location`, `description`
-- `jobType` (String) - `enum: ["fulltime", "internship", "ppo"]`
-- `aiSummary` (Array of Strings) - Generated by OpenRouter
-- `eligibility` (Object) - `{ branches: [String], minCgpa: Number, maxBacklogs: Number, batchYears: [Number] }`
-- `sourceUrl` (String)
-- `deadline` (Date)
-- `urgencyScore` (Number)
-- `applicationCount` (Number)
-- `status` (String) - `enum: ["draft", "active", "closed"]`
-- `collegeId`, `postedBy` (ObjectIds)
+| Field | Type | Notes |
+|---|---|---|
+| `title`, `company`, `location`, `description` | String | Core job details |
+| `jobType` | Enum | `fulltime`, `internship`, `ppo` |
+| `aiSummary` | [String] | OpenRouter-generated bullet points |
+| `eligibility` | Object | `{ branches, minCgpa, maxBacklogs, batchYears }` |
+| `deadline` | Date | Auto-close via cron |
+| `urgencyScore` | Number | Computed daily by cron |
+| `status` | Enum | `draft`, `active`, `closed` |
+| **Indexes** | | `{collegeId, status}`, `{deadline}`, `{createdAt}` |
 
 ### `Application`
-- `studentId`, `jobId`, `collegeId` (ObjectIds)
-- `stage` (String) - `enum: ['applied', 'oa', 'interview', 'offer', 'rejected']`
-- `stageHistory` (Array) - `{ stage: String, changedAt: Date }` (Needed for post-cycle-1 AI features)
-- `notes` (String)
+| Field | Type | Notes |
+|---|---|---|
+| `studentId`, `jobId`, `collegeId` | ObjectId | Foreign keys |
+| `stage` | Enum | `applied`, `oa`, `interview`, `offer`, `rejected` |
+| `stageHistory` | [{stage, changedAt}] | Full audit trail of stage movements |
+| `interviewRounds` | [{roundNumber, type, scheduledAt, status, feedback}] | Structured interview tracking |
+| `offerLetterUrl` | String | Cloudinary URL for verified offers |
+| `offerStatus` | Enum | `none`, `uploaded`, `verified`, `rejected` |
+| `notes` | String | Student-editable notes |
+| **Indexes** | | `{studentId}`, `{jobId}`, `{collegeId, stage}` |
+
+### `College`
+| Field | Type | Notes |
+|---|---|---|
+| `name`, `emailDomain` | String | Institution identity |
+| `licenceStatus` | Enum | `free`, `paid`, `expired` |
+| `departments` | [String] | Configured by admin |
+| `cgpaScale` | Number | 5 or 10 |
+| `aiReviewQuota` | Number | Monthly AI reviews per student (default: 3) |
+| `isActive`, `isDeleted` | Boolean | Soft-delete + activation toggle |
+
+### `Batch`
+| Field | Type | Notes |
+|---|---|---|
+| `name`, `year`, `department` | Mixed | Cohort identity |
+| `collegeId`, `createdBy` | ObjectId | Ownership |
+| `students` | [ObjectId] | Enrolled student references |
 
 ### `Company` (CRM)
-- `name`, `status`, `expectedVisitDate`
-- `publicData` (Object) - Pre-populated fields (e.g. from AmbitionBox): `avgCtc`, `employeeRange`, `industry`, `glassdoorRating`
-- `historicalData` (Array) - The data moat fields: `cycleYear`, `ctcOffered`, `offersCount`, `studentsInterviewed`, `interviewRounds`, `branches`
-- `collegeId` (ObjectId)
+| Field | Type | Notes |
+|---|---|---|
+| `name`, `status` | String | Kanban stages: `prospect` → `confirmed` → `visited` → `closed` |
+| `publicData` | Object | `avgCtc`, `employeeRange`, `industry`, `glassdoorRating` |
+| `historicalData` | Array | Year-over-year: `cycleYear`, `ctcOffered`, `offersCount`, `branches` |
 
-### `PlacementCycle`
-- `collegeId` (ObjectId)
-- `startYear` (Number), `endYear` (Number)
-- `status` (String) - `enum: ["active", "closed"]`
-- `stats` (Object) - `totalEligibleStudents`, `totalPlaced`, `highestCtc`, `avgCtc`, `totalCompaniesVisited`
-*(Critical for historical analytics and the data moat).*
+### `AuditLog`
+| Field | Type | Notes |
+|---|---|---|
+| `userId`, `collegeId` | ObjectId | Actor + tenant |
+| `action` | String | e.g., `JOB_CREATED`, `APPLICATION_STAGE_CHANGED` |
+| `target`, `targetId` | String, ObjectId | What was acted upon |
+| `details` | Object | Freeform metadata |
+| `createdAt` | Date | Auto-expires after 90 days (TTL index) |
 
----
-
-## 4. API Routes
-
-All protected routes expect a valid JWT in the `Authorization: Bearer <token>` header.
-
-### Authentication (`/api/auth`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `POST` | `/register` | Register a new student or coordinator | Open |
-| `POST` | `/login` | Authenticate and receive JWT | Open |
-| `GET`  | `/me` | Get current user profile | Authenticated |
-
-### Jobs (`/api/jobs`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `GET`  | `/` | Get job feed (Students see eligible jobs; Coordinators see all) | Student, Coordinator |
-| `POST` | `/` | Create a new job listing. *Enforces 5-job cap for free tier* | Coordinator |
-| `POST` | `/:id/summarise` | Generate OpenRouter AI summary for JD | Coordinator |
-| `POST` | `/scrape` | Scrape Job from Unstop URL | Coordinator (Paid) |
-| `POST` | `/:id/broadcast` | Send WhatsApp broadcast about a job | Coordinator (Paid) |
-
-### Applications (`/api/applications`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `GET`  | `/` | Get applications (Students see own; Coordinators see all) | Student, Coordinator |
-| `POST` | `/` | Apply to a job | Student |
-| `PUT`  | `/:id` | Update application stage (Kanban movement) | Student |
-
-### Companies (`/api/companies`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `GET`  | `/` | Get company pipeline | Coordinator |
-| `POST` | `/` | Add a company prospect | Coordinator |
-
-### Analytics (`/api/analytics`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `GET`  | `/overview` | Overview stats (Placement rates, total students) | Coordinator (Paid) |
-| `GET`  | `/pipeline` | Application funnel stats | Coordinator (Paid) |
-| `GET`  | `/branch` | Placed vs Unplaced by Branch | Coordinator (Paid) |
-| `GET`  | `/at-risk` | Students with 0 applications / unplaced | Coordinator (Paid) |
-
-### Admin (`/api/admin`)
-| Method | Route | Description | Access |
-|---|---|---|---|
-| `POST` | `/colleges` | Provision a new college entity | Admin |
-| `GET`  | `/colleges` | List all colleges | Admin |
+### Additional Models
+- **`Notification`** — In-app notification feed with read/unread status
+- **`Announcement`** — Coordinator-to-student broadcasts with read tracking
+- **`AtsScore`** — Cached ATS match scores per student-job pair
+- **`PlacementCycle`** — Historical placement statistics per college
+- **`ScraperSource`** — Tracked URLs for automated scraping
 
 ---
 
-## 5. Setup & Data Seeding
+## 5. API Reference — 65 Endpoints
 
-### Seeding
-A specialized seed script is provided to populate the database with a functional testing environment including the Admin, a College, Coordinators, Students, Jobs, and a Placement Cycle.
+All protected routes require `Authorization: Bearer <token>` header.
+
+### Authentication (`/api/auth`) — 8 endpoints
+
+| Method | Route | Description | Access | Middleware |
+|---|---|---|---|---|
+| `POST` | `/login` | Authenticate user, return JWT | Public | Rate limited |
+| `GET` | `/setup-verify` | Verify setup token validity | Public | — |
+| `POST` | `/setup-complete` | Complete account activation (set password) | Public | Rate limited |
+| `GET` | `/me` | Get current authenticated user | Authenticated | `protect` |
+| `GET` | `/college` | Get user's college config | Authenticated | `protect`, `cache(300s)` |
+| `PUT` | `/change-password` | Change password (requires old password) | Authenticated | `protect` |
+| `POST` | `/forgot-password` | Generate reset token + send email | Public | Rate limited |
+| `POST` | `/reset-password` | Reset password with token | Public | Rate limited |
+
+### Admin (`/api/admin`) — 11 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `POST` | `/colleges` | Create college + provision admin | Superadmin |
+| `GET` | `/colleges` | List all colleges | Superadmin |
+| `PUT` | `/colleges/:id/upgrade` | Update licence status / AI quota | Superadmin |
+| `DELETE` | `/colleges/:id` | Soft-delete college | Superadmin |
+| `POST` | `/colleges/:id/regenerate-setup` | Regenerate admin setup link | Superadmin |
+| `PUT` | `/colleges/:id/toggle-active` | Toggle college active status | Superadmin |
+| `GET` | `/college-settings` | Get college config | Admin |
+| `PUT` | `/college-settings` | Update departments / CGPA scale | Admin |
+| `POST` | `/coordinators` | Provision a coordinator | Admin |
+| `GET` | `/coordinators` | List college coordinators | Admin |
+| `POST` | `/upgrade-simulation` | Simulate plan upgrade (dev) | Superadmin/Admin |
+
+### Jobs (`/api/jobs`) — 8 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | List jobs (students see eligible only + ATS matchScore) | Authenticated |
+| `POST` | `/` | Create job posting | Coordinator |
+| `PUT` | `/:id` | Update job details/status | Coordinator |
+| `DELETE` | `/:id` | Delete job | Coordinator |
+| `POST` | `/:id/summarise` | AI-summarise job description | Coordinator |
+| `POST` | `/scrape` | Scrape job from Unstop URL | Coordinator (Paid) |
+| `POST` | `/:id/broadcast` | WhatsApp broadcast to eligible students | Coordinator (Paid) |
+| `POST` | `/:id/ai-review` | AI resume deep-review against JD | Student (Onboarded) |
+
+### Applications (`/api/applications`) — 7 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | List applications (paginated) | Authenticated |
+| `POST` | `/` | Apply to a job | Student (Onboarded) |
+| `PUT` | `/:id` | Update stage (optimistic concurrency) / notes | Student/Coordinator |
+| `POST` | `/:id/rounds` | Schedule interview round | Coordinator |
+| `PUT` | `/:id/rounds/:roundId` | Update interview round status | Coordinator |
+| `PUT` | `/:id/offer-upload` | Upload offer letter (Cloudinary) | Student (Onboarded) |
+| `PUT` | `/:id/offer-verify` | Verify/reject offer letter | Coordinator |
+
+### Batches (`/api/batches`) — 8 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | List batches (paginated) | Coordinator |
+| `POST` | `/` | Create a new batch | Coordinator |
+| `GET` | `/:id/students` | List students (search + filter + paginate) | Coordinator |
+| `POST` | `/:id/students` | Bulk import students via CSV | Coordinator |
+| `POST` | `/:id/students/single` | Add single student | Coordinator |
+| `PUT` | `/students/:id/status` | Toggle student active/inactive | Coordinator |
+| `POST` | `/students/:id/send-login` | Email login credentials to student | Coordinator |
+| `DELETE` | `/:id/students/:studentId` | Remove student + cancel pending apps | Coordinator |
+
+### Students (`/api/students`) — 4 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `POST` | `/onboard` | Complete onboarding (profile + resume upload) | Student |
+| `GET` | `/me` | Get current student profile | Authenticated |
+| `GET` | `/college-config` | Get college departments + CGPA scale | Authenticated |
+| `PUT` | `/profile` | Update student profile | Student (Onboarded) |
+
+### Companies (`/api/companies`) — 4 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | List companies (cached 60s, paginated) | Authenticated |
+| `POST` | `/` | Create company record | Coordinator |
+| `GET` | `/:id/intel` | Get company details/intel | Authenticated |
+| `PUT` | `/:id` | Update company CRM data | Coordinator |
+
+### Analytics (`/api/analytics`) — 6 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/overview` | Placement overview stats | Coordinator/Admin |
+| `GET` | `/pipeline` | Application funnel breakdown | Coordinator (Paid) |
+| `GET` | `/branch` | Branch-wise placement stats | Coordinator (Paid) |
+| `GET` | `/at-risk` | At-risk unplaced students | Coordinator (Paid) |
+| `GET` | `/ats-distribution` | ATS score distribution buckets | Coordinator (Paid) |
+| `GET` | `/activity-heatmap` | Daily application activity (30 days) | Coordinator (Paid) |
+
+### Announcements (`/api/announcements`) — 3 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | List announcements | Authenticated |
+| `POST` | `/` | Create announcement (email if high priority) | Coordinator |
+| `POST` | `/:id/read` | Mark announcement as read | Student |
+
+### Notifications (`/api/notifications`) — 3 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/` | Get notifications (limit 50) | Authenticated |
+| `PUT` | `/:id/read` | Mark notification as read | Authenticated |
+| `PUT` | `/read-all` | Mark all as read | Authenticated |
+
+### Export (`/api/export`) — 3 endpoints
+
+| Method | Route | Description | Access |
+|---|---|---|---|
+| `GET` | `/students` | Export student roster as CSV | Coordinator |
+| `GET` | `/applications` | Export applications as CSV | Coordinator |
+| `GET` | `/placement-report` | Export placement report as CSV | Coordinator |
+
+---
+
+## 6. Security Measures
+
+| Layer | Implementation |
+|---|---|
+| **Authentication** | JWT (7-day expiry) with bcrypt password hashing |
+| **Authorization** | Role-based middleware (`requireRole`) + tier checks (`requirePaid`) |
+| **Rate Limiting** | 20 requests / 15 minutes on all auth endpoints |
+| **Security Headers** | Helmet.js (CSP, HSTS, X-Frame-Options, X-Content-Type-Options) |
+| **CORS** | Restricted to `CLIENT_URL` origin with credentials |
+| **File Upload** | Extension whitelist, Cloudinary cloud storage (no local traversal risk) |
+| **Password Policy** | Forced change on first student login (`mustChangePassword` flag) |
+| **Onboarding Gate** | Server-side middleware prevents incomplete profiles from accessing mutations |
+| **Optimistic Concurrency** | Application stage updates check `expectedStage` to prevent race conditions |
+| **Audit Trail** | All mutations logged with actor, action, target, details (90-day TTL) |
+| **Secrets Management** | `.env` files excluded from Git, strong JWT secret guidance |
+
+---
+
+## 7. Background Jobs (Cron)
+
+All cron jobs run in **production only** (`NODE_ENV === 'production'`).
+
+| Job | Schedule | Purpose |
+|---|---|---|
+| `deadlineReminder` | Daily 8:00 AM | Email students about jobs closing within 48 hours (dedup: skips if reminder sent in last 24h) |
+| `urgencyRefresh` | Daily | Recalculates urgency scores for all active jobs using `bulkWrite` |
+| `autoClose` | Daily | Closes jobs past their deadline |
+| `autoScrape` | Configurable | Scrapes tracked URLs for new jobs (with error alerting) |
+
+---
+
+## 8. Deployment
+
+### Docker (Recommended)
+```bash
+docker-compose up --build
+```
+Starts 3 services:
+- `mongodb` — MongoDB 6.0
+- `server` — Node.js API (port 5001)
+- `scraper` — Python FastAPI scraper service
+
+### Manual
+```bash
+# Install dependencies
+npm run install-all
+
+# Seed database
+npm run seed
+
+# Run development
+npm run dev
+```
+
+### Environment Variables
+See `server/.env.example` for all required and optional configuration.
+
+---
+
+## 9. Testing
 
 ```bash
 cd server
-npm run seed
-# or
-node scripts/seedAdmin.js
+npm test
 ```
 
-### Background Jobs (Cron)
-- **Deadline Reminders**: Runs daily at 8:00 AM to email students about expiring job applications.
-- **Urgency Score Refresh**: Runs daily to calculate and update job urgency sorting metrics.
+**Test suites:** 6 | **Tests:** 22 | **Framework:** Jest + Supertest + mongodb-memory-server
+
+| Suite | Coverage |
+|---|---|
+| `auth.test.js` | Login, setup, password flows |
+| `applications.test.js` | Apply, stage transitions, concurrency |
+| `auth.middleware.test.js` | JWT verification, role guards |
+| `storageService.test.js` | Cloudinary upload, file validation |
+| `ats.test.js` | ATS scoring, synonym matching |
+| `requireRole.test.js` | Role-based access control |

@@ -6,6 +6,7 @@ const fs = require("fs");
 const path = require("path");
 const User = require("../models/User");
 const { protect } = require("../middleware/auth");
+const { enforceOnboarding } = require("../middleware/onboarded");
 
 const { uploadFile } = require("../services/storageService");
 
@@ -42,7 +43,7 @@ router.post("/onboard", protect, uploadSingleResume, async (req, res) => {
       return res.status(403).json({ error: "Only students can onboard here." });
     }
 
-    const { department, section, rollNumber, cgpa, tenthPercent, twelfthPercent, activeBacklogs, skills } = req.body;
+    const { department, section, rollNumber, cgpa, tenthPercent, twelfthPercent, activeBacklogs, skills, phone } = req.body;
     
     // Fetch College config to validate CGPA
     const College = require("../models/College");
@@ -89,6 +90,8 @@ router.post("/onboard", protect, uploadSingleResume, async (req, res) => {
       user.skills = typeof skills === "string" ? skills.split(",").map(s => s.trim()) : skills;
     }
 
+    if (phone) user.phone = phone;
+
     // Process resume if uploaded
     if (req.file) {
       // Parse PDF text from in-memory buffer
@@ -101,10 +104,12 @@ router.post("/onboard", protect, uploadSingleResume, async (req, res) => {
       user.resumeUpdatedAt = Date.now();
     }
 
+    // Only initialize AI quota on first onboarding, not on subsequent resume re-uploads
+    if (!user.isOnboarded) {
+      user.aiReviewsUsed = 0;
+      user.aiReviewResetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    }
     user.isOnboarded = true;
-    // Set initial quota
-    user.aiReviewsUsed = 0;
-    user.aiReviewResetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
 
     await user.save();
     
@@ -142,7 +147,8 @@ router.get("/college-config", protect, async (req, res) => {
     
     res.json({
       departments: college.departments,
-      cgpaScale: college.cgpaScale
+      cgpaScale: college.cgpaScale,
+      aiReviewQuota: college.aiReviewQuota || 3
     });
   } catch (error) {
     res.status(500).json({ error: "Server error fetching college config" });
@@ -150,14 +156,14 @@ router.get("/college-config", protect, async (req, res) => {
 });
 
 // PUT /api/students/profile
-router.put("/profile", protect, async (req, res) => {
+router.put("/profile", protect, enforceOnboarding, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user || user.role !== "student") {
       return res.status(403).json({ error: "Only students can update their profile here." });
     }
 
-    const { name, department, section, rollNumber, cgpa, tenthPercent, twelfthPercent, activeBacklogs, skills } = req.body;
+    const { name, department, section, rollNumber, cgpa, tenthPercent, twelfthPercent, activeBacklogs, skills, phone } = req.body;
 
     const College = require("../models/College");
     const college = await College.findById(user.collegeId);
@@ -202,6 +208,8 @@ router.put("/profile", protect, async (req, res) => {
     if (skills) {
       user.skills = typeof skills === "string" ? skills.split(",").map(s => s.trim()).filter(Boolean) : skills;
     }
+
+    if (phone !== undefined) user.phone = phone;
 
     await user.save();
     

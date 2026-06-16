@@ -6,17 +6,30 @@ const router = express.Router();
 const Company = require("../models/Company");
 const { protect } = require("../middleware/auth");
 const { requireRole } = require("../middleware/requireRole");
+const paginate = require("../middleware/paginate");
+const cacheMiddleware = require("../middleware/cache");
 
 // @route   GET /api/companies
-router.get("/", protect, async (req, res) => {
+router.get("/", protect, paginate(), cacheMiddleware(60), async (req, res) => {
   try {
-    const companies = await Company.find({
+    const query = {
       $or: [
         { collegeId: req.user.collegeId },
         { collegeId: null }
       ]
+    };
+    const total = await Company.countDocuments(query);
+    const companies = await Company.find(query)
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+
+    res.json({
+      total,
+      page: req.pagination.page,
+      limit: req.pagination.limit,
+      pages: Math.ceil(total / req.pagination.limit),
+      data: companies
     });
-    res.json(companies);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

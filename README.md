@@ -1,35 +1,52 @@
 <div align="center">
   <h1>🎓 PlaceIQ</h1>
-  <p><strong>A Next-Generation, Dual-Interface College Placement Management Platform</strong></p>
-  <p>PlaceIQ is an enterprise-grade web application designed to streamline campus recruitments. It provides highly tailored interfaces for Placement Coordinators, College Admins, and Students, powered by a robust backend and role-based provisioning security.</p>
+  <p><strong>A Next-Generation, Multi-Tenant College Placement Management Platform</strong></p>
+  <p>PlaceIQ is an enterprise-grade, production-ready web application designed to streamline campus recruitments at scale. It provides highly tailored interfaces for Super Admins, College Admins, Placement Coordinators, and Students — powered by AI integrations, a robust security model, and real-world infrastructure.</p>
+
+  ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)
+  ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+  ![MongoDB](https://img.shields.io/badge/MongoDB-6.0-47A248?logo=mongodb&logoColor=white)
+  ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)
+  ![Tests](https://img.shields.io/badge/Tests-22%20passing-brightgreen)
+  ![License](https://img.shields.io/badge/License-MIT-blue)
 </div>
 
 <hr/>
 
 ## ✨ Core Features
 
-### 🏢 Platform & College Administration (Trading Terminal Aesthetic)
-A dense, data-forward interface built for power users handling thousands of records.
+### 🏢 Platform & College Administration
+A dense, data-forward "trading terminal" interface built for power users.
 - **Hierarchical Provisioning Security:** All registrations are locked down. Accounts are provisioned top-down via secure, token-based setup links.
-- **Super Admin Panel:** Oversee all colleges, manage Pro/Free licenses, and provision new institution administrators.
-- **College Admin Settings:** Control CGPA scale constraint (5 or 10-point scales) and define valid academic departments.
+- **Super Admin Panel:** Oversee all colleges, manage Pro/Free licenses, configure AI review quotas, and provision institution administrators.
+- **College Admin Settings:** Control CGPA scale constraint (5 or 10-point) and define valid academic departments.
 - **Coordinator Directory:** Provision placement coordinators and monitor setup/activation status in real-time.
-- **At-Risk Analytics Engine:** Real-time flagging of students who are falling behind (e.g., low CGPA, active backlogs, 0 job applications) via MongoDB pipeline aggregations.
-- **Multi-Channel Broadcasting:** Push critical job updates directly to students via Twilio WhatsApp API and Nodemailer emails.
+- **At-Risk Analytics Engine:** Real-time flagging of students falling behind (low CGPA, backlogs, zero applications) via MongoDB aggregation pipelines.
+- **Multi-Channel Broadcasting:** Push critical job updates via Twilio WhatsApp API and Nodemailer emails.
 
-### 👨‍🎓 Student Experience (Clean Room Aesthetic)
+### 👨‍🎓 Student Experience
 An ultra-minimalist, distraction-free environment for students to focus on their career.
 - **Eligibility-Filtered Feed:** Students only see jobs they are strictly eligible for, eliminating application spam.
-- **Hybrid ATS Scoring:** 
-  - **Rule-Based Pre-Screening:** Instant, local resume matching scores (0-100%) calculated against job descriptions.
-  - **On-Demand AI Review:** Students can expend a monthly quota (e.g., 3 per month) to get deep, OpenRouter-powered feedback on how to tailor their resume for a specific role.
-- **Kanban Application Tracker:** A visual board to track applications across stages (Applied, Assessment, Interview, Offer, Rejected).
+- **Hybrid ATS Scoring:**
+  - **Rule-Based Pre-Screening:** Instant resume matching (0-100%) with synonym-aware keyword analysis.
+  - **On-Demand AI Review:** Monthly quota (configurable per college, default: 3) for OpenRouter-powered deep resume feedback.
+- **Kanban Application Tracker:** Visual board tracking applications across stages (Applied → Assessment → Interview → Offer → Rejected).
+- **Structured Interview Tracking:** Per-application interview rounds with scheduling, status, and feedback.
+- **Offer Verification Pipeline:** Students upload offer letters → Coordinators verify/reject.
+
+### 🔐 Security & Hardening
+- **Helmet.js** security headers (CSP, HSTS, X-Frame-Options)
+- **Rate limiting** on all authentication endpoints (20 req / 15 min)
+- **CORS** restricted to configured client origin
+- **Cloudinary** cloud storage (no local filesystem exposure)
+- **Server-side onboarding enforcement** via middleware
+- **Optimistic concurrency control** on application stage transitions
+- **Audit logging** on all mutations with 90-day TTL
+- **Forced password change** on first student login
 
 ---
 
 ## 🔐 Hierarchical Onboarding Workflow
-
-To maintain absolute data integrity and prevent unauthorized student registrations, PlaceIQ enforces a strict top-down account activation chain:
 
 ```mermaid
 graph TD
@@ -38,58 +55,60 @@ graph TD
     CA_Active -->|Provisions Coordinator & returns Setup Link| CO[Coordinator]
     CO -->|Visits link & sets password| CO_Active[Active Coordinator]
     CO_Active -->|Creates Cohort & adds Students| ST[Student]
-    ST -->|Logs in directly via default password| ST_Active[Active Student]
+    ST -->|Logs in → Forced password change → Onboarding| ST_Active[Active Student]
 ```
 
-1. **Super Admin Setup:** Logs in via seeded credentials, registers a college, and provisions its **College Admin**. This creates a secure, token-based activation URL.
-2. **College Admin Activation:** The College Admin visits their setup link, sets their password, and gains access to their configuration settings and Coordinator Directory.
-3. **Coordinator Provisioning:** The College Admin provisions **Coordinators** for specific branches, generating setup activation links.
-4. **Coordinator Activation:** The Coordinator visits their setup link, sets their password, and gains access to Cohort and Job Management.
-5. **Student Provisioning:** The Coordinator creates a Cohort and registers **Students** (either individually or via bulk CSV upload). Students are immediately initialized with a standard default password (`student123`) and can log in directly.
+1. **Super Admin** logs in via seeded credentials, provisions colleges and their admins.
+2. **College Admin** activates via setup link, configures departments and CGPA scale.
+3. **Coordinator** activates via setup link, manages jobs, batches, and students.
+4. **Student** logs in with default credentials → forced to change password → completes profile onboarding → gains full access.
 
 ---
 
 ## 🛠️ Technology Stack
 
-**Frontend:**
-- React 18, React Router DOM
-- Tailwind CSS v3 (Customized `zinc` and `emerald` palette)
-- Lucide Icons
-- Typography: Inter (UI) & JetBrains Mono (Data)
-
-**Backend:**
-- Node.js & Express.js
-- MongoDB & Mongoose
-- JSON Web Tokens (JWT) for Role-Based Access Control (RBAC)
-- Bcryptjs for password hashing
-
-**Microservices & Integrations:**
-- **ScrapeGraphAI (Python):** Intelligent web scraping of job descriptions using LLMs.
-- **OpenRouter API:** Powers the on-demand student ATS deep-reviews.
-- **Twilio API:** WhatsApp broadcasting for urgent announcements.
-- **Nodemailer:** Automated daily cron-job emails.
+| Layer | Technologies |
+|---|---|
+| **Frontend** | React 18, React Router v6, Tailwind CSS v3, Lucide Icons, Axios, react-hot-toast |
+| **Backend** | Node.js 18+, Express.js, MongoDB 6+, Mongoose, JWT, bcryptjs, Helmet, express-rate-limit |
+| **AI & Integrations** | ScrapeGraphAI (Python/FastAPI), OpenRouter API, Twilio API, Nodemailer, Cloudinary |
+| **DevOps** | Docker + docker-compose, GitHub Actions CI, Jest + Supertest, ESLint + Prettier |
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### 1. Prerequisites
+### Prerequisites
 - Node.js 18+ and npm 9+
 - MongoDB (Atlas cluster or local instance)
 
-### 2. Environment Configuration
-Create a `.env` file in the `/server` directory:
+### Option A: Docker (Recommended)
+```bash
+# Clone and start all services
+docker-compose up --build
+```
+This launches MongoDB, the Node.js API server, and the Python scraper service.
 
+### Option B: Manual Setup
+
+#### 1. Environment Configuration
+Create a `.env` file in the `/server` directory:
 ```env
 PORT=5001
 NODE_ENV=development
 MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_signing_secret
+JWT_SECRET=your_strong_random_secret_min_32_chars
 JWT_EXPIRES_IN=7d
+CLIENT_URL=http://localhost:3000
 
 # Seed Script Credentials
-SEED_ADMIN_EMAIL=admin@anurag.edu.in
+SEED_ADMIN_EMAIL=admin@gmail.com
 SEED_ADMIN_PASSWORD=password123
+
+# Cloudinary (required for file uploads)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
 # Optional: AI & Integrations
 OPENROUTER_API_KEY=your_openrouter_key
@@ -105,28 +124,27 @@ Create a `.env` file in the `/client` directory:
 REACT_APP_API_URL=http://localhost:5001/api
 ```
 
-### 3. Installation & Database Reset
+#### 2. Installation & Database Seed
 ```bash
-# Install all root, client, and server dependencies
+# Install all dependencies (root, client, server)
 npm run install-all
 
 # Reset database & seed the Super Admin
 npm run seed
 ```
 
-**Seeded Super Admin Credentials (Fresh Start):**
-- **Email:** `admin@gmail.com`
-- **Password:** `password123`
-
-*(All subsequent admin, coordinator, and student accounts must be provisioned through the platform flow)*
-
-### 4. Running the Application
-To run the full stack concurrently:
+#### 3. Running the Application
 ```bash
 npm run dev
 ```
-- **Frontend App:** `http://localhost:3000`
+- **Frontend:** `http://localhost:3000`
 - **Backend API:** `http://localhost:5001`
+
+### Seeded Super Admin Credentials
+- **Email:** `admin@gmail.com`
+- **Password:** `password123`
+
+*(All subsequent accounts must be provisioned through the platform's hierarchical flow)*
 
 ---
 
@@ -134,23 +152,66 @@ npm run dev
 
 ```text
 placeiq/
-├── client/                     # React Frontend
+├── client/                         # React Frontend
 │   ├── src/
-│   │   ├── api/                # Axios interceptor setups
-│   │   ├── components/         # Divided into /shared, /coordinator, /student
-│   │   ├── context/            # AuthContext (JWT handling)
-│   │   ├── pages/              # SetupAccount.js, AdminApp.js, etc.
-│   │   └── index.css           # Global Tailwind directives
+│   │   ├── api/                    # Axios interceptor (401 auto-logout)
+│   │   ├── components/
+│   │   │   ├── shared/             # ErrorBoundary, Sidebar, Pagination, Spinner, etc.
+│   │   │   ├── coordinator/        # JobsManager, Batches, CompaniesManager, etc.
+│   │   │   ├── student/            # Feed, Tracker, Onboarding, Profile, etc.
+│   │   │   └── admin/              # CollegesTable, CoordinatorDirectory, Settings, etc.
+│   │   ├── context/                # AuthContext, ThemeContext
+│   │   └── pages/                  # Login, Register, CoordinatorApp, AdminApp, etc.
 │
-├── server/                     # Express Backend
-│   ├── config/                 # DB connection logic
-│   ├── cron/                   # Automated Node-Cron jobs
-│   ├── middleware/             # Auth & Role verification (RBAC)
-│   ├── models/                 # Mongoose Schemas (User, Job, Batch, etc.)
-│   ├── routes/                 # API endpoints (auth, admin, batches, etc.)
-│   ├── scripts/                # Database seeders
-│   └── services/               # External integrations (ATS, Scraper, Twilio, Nodemailer)
+├── server/                         # Express Backend
+│   ├── config/                     # DB connection, constants (roles, file types)
+│   ├── cron/                       # Scheduled jobs (deadline, urgency, autoClose, scrape)
+│   ├── middleware/                  # auth, requireRole, paginate, cache, onboarded, auditLogger
+│   ├── models/                     # 10 Mongoose schemas (indexed)
+│   ├── routes/                     # 11 route files, 65 endpoints
+│   ├── services/                   # ATS, scraper, email, broadcast, Cloudinary storage
+│   ├── scripts/                    # seedAdmin.js, dropDb.js (with safeguards)
+│   └── __tests__/                  # Jest test suites (22 tests)
+│
+├── scraper-service/                # Python FastAPI Microservice
+│   ├── main.py                     # FastAPI server with /health endpoint
+│   ├── scraper.py                  # ScrapeGraphAI + OpenRouter integration
+│   └── Dockerfile
+│
+├── docker-compose.yml              # 3-service orchestration
+├── .github/workflows/ci.yml        # Automated CI pipeline
+├── .eslintrc.js / .prettierrc      # Code quality configs
+└── LICENSE                         # MIT
 ```
+
+---
+
+## 🧪 Testing
+
+```bash
+cd server && npm test
+```
+
+| Suite | Tests | Coverage |
+|---|---|---|
+| Auth routes | 5 | Login, setup, password flows |
+| Applications routes | 4 | Apply, stage transitions, concurrency |
+| Auth middleware | 4 | JWT verification, role guards |
+| Storage service | 3 | Cloudinary upload, file validation |
+| ATS service | 3 | Scoring, synonym matching |
+| Role middleware | 3 | RBAC enforcement |
+| **Total** | **22** | All passing ✅ |
+
+---
+
+## 📖 Documentation
+
+See [DOCUMENTATION.md](./DOCUMENTATION.md) for:
+- Complete API reference (65 endpoints)
+- Database schema details
+- Middleware architecture
+- Security measures
+- Deployment guide
 
 ---
 

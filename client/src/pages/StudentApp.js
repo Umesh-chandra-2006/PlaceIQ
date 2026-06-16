@@ -3,7 +3,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+
 import axios from '../api/axios';
 import Feed from '../components/student/Feed';
 import Tracker from '../components/student/Tracker';
@@ -15,21 +15,16 @@ import Sidebar from '../components/shared/Sidebar';
 import OnboardingTour from '../components/shared/OnboardingTour';
 
 const StudentApp = () => {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchMe = async () => {
       try {
         const { data } = await axios.get('/students/me');
-        setProfile(data);
         if (!data.isOnboarded && location.pathname !== '/student/onboard') {
-          navigate('/student/onboard');
-        } else if (data.isOnboarded && location.pathname === '/student/onboard') {
-          navigate('/student');
+          navigate('/change-password');
         }
       } catch (e) {
         console.error(e);

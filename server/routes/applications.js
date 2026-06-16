@@ -10,8 +10,12 @@ const { protect } = require("../middleware/auth");
 const { requireRole } = require("../middleware/requireRole");
 const { calculateRuleBasedScore } = require("../services/ats");
 
+const paginate = require("../middleware/paginate");
+const { enforceOnboarding } = require("../middleware/onboarded");
+const { logAudit } = require("../middleware/auditLogger");
+
 // @route   GET /api/applications
-router.get("/", protect, async (req, res) => {
+router.get("/", protect, paginate(), async (req, res) => {
   try {
     let query = { collegeId: req.user.collegeId }; // Always scope by collegeId
 
@@ -25,11 +29,21 @@ router.get("/", protect, async (req, res) => {
         query.jobId = req.query.jobId;
       }
     }
+    const total = await Application.countDocuments(query);
     const apps = await Application.find(query)
       .populate("jobId")
       .populate("studentId", "name email branch year cgpa")
-      .sort({ updatedAt: -1 });
-    res.json(apps);
+      .sort({ updatedAt: -1 })
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+
+    res.json({
+      total,
+      page: req.pagination.page,
+      limit: req.pagination.limit,
+      pages: Math.ceil(total / req.pagination.limit),
+      data: apps
+    });
   } catch (error) {
     console.error("API Error:", error);
     res.status(500).json({ error: "An internal server error occurred" });
@@ -37,7 +51,7 @@ router.get("/", protect, async (req, res) => {
 });
 
 // @route   POST /api/applications
-router.post("/", protect, requireRole("student"), async (req, res) => {
+router.post("/", protect, enforceOnboarding, requireRole("student"), async (req, res) => {
   try {
     const { jobId } = req.body;
     
@@ -76,10 +90,12 @@ router.post("/", protect, requireRole("student"), async (req, res) => {
 });
 
 // @route   PUT /api/applications/:id
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", protect, enforceOnboarding, async (req, res) => {
   try {
     const app = await Application.findById(req.params.id);
     if (!app) return res.status(404).json({ error: "Application not found" });
+
+    const previousStage = app.stage;
 
     // Ensure application belongs to the same college
     if (app.collegeId.toString() !== req.user.collegeId.toString()) {
@@ -93,20 +109,47 @@ router.put("/:id", protect, async (req, res) => {
       }
       if (req.body.notes) app.notes = req.body.notes;
     } else if (req.user.role === "coordinator") {
+      if (req.body.notes !== undefined) app.notes = req.body.notes;
       // Verify coordinator owns the job or belongs to the same college (already checked above)
       if (req.body.stage) {
+        if (req.body.expectedStage && app.stage !== req.body.expectedStage) {
+          return res.status(409).json({ 
+            error: "Conflict: Application stage was changed by another user",
+            currentStage: app.stage 
+          });
+        }
+        const previousStage = app.stage; // already declared above, but keep compatibility
         app.stage = req.body.stage;
         app.stageHistory.push({ stage: req.body.stage, changedAt: new Date() });
         
-        // If offer accepted, mark student as placed
+        // If moved TO offer, mark student as placed
         if (req.body.stage === "offer") {
-          await User.findByIdAndUpdate(app.studentId, { isPlaced: true });
+          await User.findByIdAndUpdate(app.studentId, {
+            isPlaced: true,
+            placementStatus: "placed_on_campus"
+          });
+        }
+        // If moved AWAY from offer, revert placement status
+        else if (previousStage === "offer") {
+          // Only revert if the student has no other active offers
+          const otherOffers = await Application.countDocuments({
+            studentId: app.studentId,
+            stage: "offer",
+            _id: { $ne: app._id }
+          });
+          if (otherOffers === 0) {
+            await User.findByIdAndUpdate(app.studentId, {
+              isPlaced: false,
+              placementStatus: "not_placed"
+            });
+          }
         }
       }
     }
 
     app.updatedAt = new Date();
     await app.save();
+    await logAudit(req, "UPDATE_APPLICATION", "Application", app._id, { stage: app.stage, previousStage, notes: app.notes });
     res.json(app);
   } catch (error) {
     console.error("API Error:", error);
@@ -220,7 +263,7 @@ router.put("/:id/rounds/:roundId", protect, requireRole("coordinator"), async (r
 
 // @route   PUT /api/applications/:id/offer-upload
 // @desc    Allows students to upload their PDF offer letters
-router.put("/:id/offer-upload", protect, requireRole("student"), uploadSingleOffer, async (req, res) => {
+router.put("/:id/offer-upload", protect, enforceOnboarding, requireRole("student"), uploadSingleOffer, async (req, res) => {
   try {
     const app = await Application.findById(req.params.id);
     if (!app) return res.status(404).json({ error: "Application not found" });
@@ -243,6 +286,7 @@ router.put("/:id/offer-upload", protect, requireRole("student"), uploadSingleOff
 
     app.updatedAt = new Date();
     await app.save();
+    await logAudit(req, "UPLOAD_OFFER_LETTER", "Application", app._id, { ctc: app.offerDetails.ctc });
 
     // Send in-app notification to college coordinators
     const Notification = require("../models/Notification");

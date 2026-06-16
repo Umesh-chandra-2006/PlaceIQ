@@ -50,3 +50,106 @@ body.sidebar-collapsed .md\:pl-64 {
 .flex-1 {
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Color contrast improvement for text-zinc-500 on dark backgrounds to satisfy WCAG AA */
+.text-zinc-500 {
+  color: #a1a1aa !important; /* Maps to zinc-400 */
+}
+
+/* Light Theme support */
+.light-theme,
+.light-theme body {
+  background-color: #f9fafb !important;
+  color: #18181b !important;
+}
+
+.light-theme select,
+.light-theme input,
+.light-theme textarea {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+  color: #18181b !important;
+}
+
+.light-theme input::placeholder,
+.light-theme textarea::placeholder {
+  color: #a1a1aa !important;
+}
+
+.light-theme select option {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+}
+
+.light-theme table {
+  background-color: #ffffff !important;
+}
+
+.light-theme thead {
+  background-color: #f4f4f5 !important;
+  border-color: #e4e4e7 !important;
+  color: #71717a !important;
+}
+
+.light-theme tbody tr {
+  border-color: #e4e4e7 !important;
+}
+
+.light-theme tbody tr:hover {
+  background-color: #f4f4f5 !important;
+}
+
+.light-theme tbody td {
+  color: #27272a !important;
+}
+
+.light-theme aside {
+  background-color: #ffffff !important;
+  border-color: #e4e4e7 !important;
+  color: #27272a !important;
+}
+
+.light-theme aside a {
+  color: #3f3f46 !important;
+}
+
+.light-theme aside a:hover {
+  background-color: #f4f4f5 !important;
+  color: #18181b !important;
+}
+
+.light-theme .bg-zinc-950,
+.light-theme .bg-zinc-955 {
+  background-color: #ffffff !important;
+}
+
+.light-theme .border-zinc-800,
+.light-theme .border-zinc-850,
+.light-theme .border-zinc-900 {
+  border-color: #e4e4e7 !important;
+}
+
+.light-theme .bg-zinc-900\/40,
+.light-theme .bg-zinc-900\/30,
+.light-theme .bg-zinc-900\/50,
+.light-theme .bg-zinc-900 {
+  background-color: #f4f4f5 !important;
+}
+
+.light-theme .text-zinc-400,
+.light-theme .text-zinc-450,
+.light-theme .text-zinc-500 {
+  color: #71717a !important;
+}
+
+.light-theme .text-zinc-300,
+.light-theme .text-zinc-200,
+.light-theme .text-zinc-100 {
+  color: #18181b !important;
+}
+
+.light-theme .text-white {
+  color: #09090b !important;
+}
+
+

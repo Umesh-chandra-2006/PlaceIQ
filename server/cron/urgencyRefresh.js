@@ -20,9 +20,17 @@ const setupUrgencyRefresh = () => {
     console.log("Refreshing urgency scores...");
     try {
       const activeJobs = await Job.find({ status: "active" });
-      for (const job of activeJobs) {
-        job.urgencyScore = computeUrgencyScore(job.deadline, job.applicationCount);
-        await job.save();
+      if (activeJobs.length > 0) {
+        const bulkOps = activeJobs.map(job => ({
+          updateOne: {
+            filter: { _id: job._id },
+            update: { $set: { urgencyScore: computeUrgencyScore(job.deadline, job.applicationCount) } }
+          }
+        }));
+        const bulkResult = await Job.bulkWrite(bulkOps);
+        console.log(`Successfully bulk updated urgency scores for ${bulkResult.modifiedCount} jobs.`);
+      } else {
+        console.log("No active jobs to update urgency scores.");
       }
     } catch (error) {
       console.error("Cron Error (Urgency Refresh):", error);

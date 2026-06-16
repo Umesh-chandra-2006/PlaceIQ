@@ -11,11 +11,19 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null);
+      localStorage.removeItem('user');
+    };
+    window.addEventListener('auth:logout', handleForcedLogout);
+
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
     setLoading(false);
+
+    return () => window.removeEventListener('auth:logout', handleForcedLogout);
   }, []);
 
   const login = async (email, password) => {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import JobCard from './JobCard';
 import JobDetailsDrawer from '../shared/JobDetailsDrawer';
+import Pagination from '../shared/Pagination';
 import { Search, Loader2 } from 'lucide-react';
 
 const Feed = () => {
@@ -10,11 +11,26 @@ const Feed = () => {
   const [search, setSearch] = useState('');
   const [selectedJob, setSelectedJob] = useState(null);
 
-  const fetchJobs = async () => {
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+
+  const fetchJobs = async (signal) => {
     try {
-      const { data } = await axios.get(`/jobs?search=${search}`);
-      setJobs(data);
+      const { data } = await axios.get(`/jobs?search=${search}&page=${page}&limit=${limit}`, { signal });
+      if (data && data.data) {
+        setJobs(data.data);
+        setTotalPages(data.pages || 1);
+        setTotalJobs(data.total || 0);
+      } else {
+        setJobs(Array.isArray(data) ? data : []);
+        setTotalPages(1);
+        setTotalJobs(Array.isArray(data) ? data.length : 0);
+      }
     } catch (error) {
+      if (axios.isCancel(error)) return;
       console.error("Error fetching feed", error);
     } finally {
       setLoading(false);
@@ -22,12 +38,21 @@ const Feed = () => {
   };
 
   useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     const delayDebounceFn = setTimeout(() => {
-      fetchJobs();
+      fetchJobs(controller.signal);
     }, 500);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [search]);
+    return () => {
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, page, limit]);
 
   return (
     <div className="max-w-3xl mx-auto text-zinc-100">
@@ -70,6 +95,17 @@ const Feed = () => {
           ))}
         </div>
       )}
+
+      <div className="mt-6">
+        <Pagination 
+          page={page}
+          pages={totalPages}
+          limit={limit}
+          total={totalJobs}
+          onPageChange={setPage}
+          onLimitChange={setLimit}
+        />
+      </div>
 
       {selectedJob && (
         <JobDetailsDrawer 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { FileText, Upload, CheckCircle, Zap, Loader2, Edit, Save, X } from 'lucide-react';
+import { Upload, CheckCircle, Zap, Loader2, Edit, Save, X } from 'lucide-react';
 import { getFileUrl } from '../../utils/fileUtil';
 
 const Profile = () => {
-  const { user, updateUser } = useAuth();
+  const { updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -25,7 +25,8 @@ const Profile = () => {
     tenthPercent: '',
     twelfthPercent: '',
     activeBacklogs: '',
-    skills: ''
+    skills: '',
+    phone: ''
   });
 
   const fileInputRef = useRef(null);
@@ -62,7 +63,8 @@ const Profile = () => {
         tenthPercent: profile.tenthPercent !== undefined ? String(profile.tenthPercent) : '',
         twelfthPercent: profile.twelfthPercent !== undefined ? String(profile.twelfthPercent) : '',
         activeBacklogs: profile.activeBacklogs !== undefined ? String(profile.activeBacklogs) : '0',
-        skills: profile.skills ? profile.skills.join(', ') : ''
+        skills: profile.skills ? profile.skills.join(', ') : '',
+        phone: profile.phone || ''
       });
     }
   }, [profile]);
@@ -80,7 +82,8 @@ const Profile = () => {
         tenthPercent: formData.tenthPercent !== '' ? Number(formData.tenthPercent) : 0,
         twelfthPercent: formData.twelfthPercent !== '' ? Number(formData.twelfthPercent) : 0,
         activeBacklogs: formData.activeBacklogs !== '' ? Number(formData.activeBacklogs) : 0,
-        skills: formData.skills
+        skills: formData.skills,
+        phone: formData.phone
       };
       
       const { data } = await axios.put('/students/profile', payload);
@@ -274,6 +277,17 @@ const Profile = () => {
                 </div>
 
                 <div className="col-span-2">
+                  <label className="block text-zinc-550 text-[10px] uppercase tracking-wider mb-1.5 font-mono">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full px-3 py-1.5 bg-zinc-950 border border-zinc-800 rounded text-zinc-100 text-sm font-mono focus:outline-none focus:border-zinc-700"
+                  />
+                </div>
+
+                <div className="col-span-2">
                   <label className="block text-zinc-550 text-[10px] uppercase tracking-wider mb-1.5 font-mono">Skills (comma-separated)</label>
                   <input
                     type="text"
@@ -301,6 +315,10 @@ const Profile = () => {
                 <div>
                   <span className="text-zinc-550 block text-xs uppercase tracking-widest mb-1 font-medium font-mono">Section / Roll</span>
                   <span className="text-zinc-300">{profile.section || '-'} / {profile.rollNumber || '-'}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-550 block text-xs uppercase tracking-widest mb-1 font-medium font-mono">Phone</span>
+                  <span className="font-mono text-zinc-300">{profile.phone || '-'}</span>
                 </div>
                 <div>
                   <span className="text-zinc-550 block text-xs uppercase tracking-widest mb-1 font-medium font-mono">CGPA</span>
@@ -361,12 +379,12 @@ const Profile = () => {
                     strokeWidth="4"
                     fill="none"
                     strokeDasharray={`${2 * Math.PI * 28}`}
-                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - Math.max(0, 3 - (profile.aiReviewsUsed || 0)) / 3)}`}
+                    strokeDashoffset={`${2 * Math.PI * 28 * (1 - Math.max(0, (collegeConfig.aiReviewQuota || 3) - (profile.aiReviewsUsed || 0)) / (collegeConfig.aiReviewQuota || 3))}`}
                     strokeLinecap="round"
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-bold tracking-tight">{Math.max(0, 3 - (profile.aiReviewsUsed || 0))}</span>
+                  <span className="text-lg font-bold tracking-tight">{Math.max(0, (collegeConfig.aiReviewQuota || 3) - (profile.aiReviewsUsed || 0))}</span>
                   <span className="text-[9px] text-zinc-500 font-mono -mt-1 font-bold">LEFT</span>
                 </div>
               </div>
@@ -375,8 +393,9 @@ const Profile = () => {
                   Monthly quota of deep AI ATS reviews. Resets periodically.
                 </p>
                 <div className="flex gap-1.5 pt-1">
-                  {[1, 2, 3].map((num) => {
-                    const remaining = Math.max(0, 3 - (profile.aiReviewsUsed || 0));
+                  {Array.from({ length: collegeConfig.aiReviewQuota || 3 }).map((_, index) => {
+                    const num = index + 1;
+                    const remaining = Math.max(0, (collegeConfig.aiReviewQuota || 3) - (profile.aiReviewsUsed || 0));
                     const isActive = remaining >= num;
                     return (
                       <div 

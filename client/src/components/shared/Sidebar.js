@@ -5,11 +5,13 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, Briefcase, Users, Megaphone, BarChart3, 
   LogOut, CheckCircle, User, Sliders, Shield, Menu, X, Building, Bell,
-  PanelLeftClose, PanelLeftOpen, HelpCircle
+  PanelLeftClose, PanelLeftOpen, HelpCircle, Sun, Moon
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
-const Sidebar = () => {
+const Sidebar = ({ variant }) => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   
@@ -41,11 +43,15 @@ const Sidebar = () => {
 
   const fetchNotifications = async () => {
     if (!user) return;
+    const shouldShowLoading = notifications.length === 0;
+    if (shouldShowLoading) setLoadingNotifications(true);
     try {
       const { data } = await axios.get('/notifications');
       setNotifications(data);
     } catch (e) {
       console.error("Error fetching notifications", e);
+    } finally {
+      if (shouldShowLoading) setLoadingNotifications(false);
     }
   };
 
@@ -53,6 +59,7 @@ const Sidebar = () => {
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 20000); // Poll every 20s
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -84,8 +91,9 @@ const Sidebar = () => {
   let navLinks = [];
   let title = "PlaceIQ";
   let profilePath = "/";
+  const role = variant || user?.role;
   
-  if (user?.role === 'student') {
+  if (role === 'student') {
     title = "PlaceIQ Student";
     profilePath = "/student/profile";
     navLinks = [
@@ -94,7 +102,7 @@ const Sidebar = () => {
       { name: 'Announcements', path: '/student/announcements', icon: Megaphone },
       { name: 'My Profile', path: '/student/profile', icon: User },
     ];
-  } else if (user?.role === 'coordinator') {
+  } else if (role === 'coordinator') {
     title = "PlaceIQ Ops";
     profilePath = "/coordinator/profile";
     navLinks = [
@@ -108,7 +116,7 @@ const Sidebar = () => {
     if (user?.subRole === 'coordinator_paid') {
       navLinks.push({ name: 'Analytics', path: '/coordinator/analytics', icon: BarChart3 });
     }
-  } else if (user?.role === 'admin') {
+  } else if (role === 'admin') {
     title = "PlaceIQ Admin";
     profilePath = "/admin/profile";
     navLinks = [
@@ -117,7 +125,7 @@ const Sidebar = () => {
       { name: 'Coordinators', path: '/admin/coordinators', icon: Users },
       { name: 'My Profile', path: '/admin/profile', icon: User },
     ];
-  } else if (user?.role === 'superadmin') {
+  } else if (role === 'superadmin') {
     title = "PlaceIQ Super";
     profilePath = "/admin/profile";
     navLinks = [
@@ -134,6 +142,9 @@ const Sidebar = () => {
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 hover:text-zinc-100 transition-colors shadow-lg hover:bg-zinc-850"
           title="Toggle Menu"
+          aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={isOpen}
+          aria-controls="sidebar-nav"
         >
           {isOpen ? <X size={16} /> : <Menu size={16} />}
         </button>
@@ -144,10 +155,13 @@ const Sidebar = () => {
             onClick={() => setShowNotifications(!showNotifications)}
             className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-300 hover:text-zinc-100 transition-colors shadow-lg hover:bg-zinc-850 relative"
             title="Notifications"
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            aria-expanded={showNotifications}
+            aria-controls="notifications-panel"
           >
             <Bell size={16} />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
             )}
           </button>
         )}
@@ -158,11 +172,15 @@ const Sidebar = () => {
         <div 
           onClick={() => setIsOpen(false)}
           className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-20 animate-fadeIn"
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar Container */}
       <aside 
+        id="sidebar-nav"
+        role="navigation"
+        aria-label="Main navigation"
         className={`fixed inset-y-0 left-0 bg-zinc-950/70 border-r border-zinc-800 flex flex-col text-zinc-300 z-20 transition-all duration-300 ease-out md:translate-x-0 md:m-4 md:h-[calc(100vh-2rem)] md:rounded-2xl md:border md:bg-zinc-950/70 md:backdrop-blur-md md:shadow-2xl ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       } ${isExpandedVisually ? 'md:w-64 w-64' : 'w-20'}`}>
@@ -181,6 +199,8 @@ const Sidebar = () => {
                 onClick={toggleCollapse}
                 className="hidden md:block p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 transition-colors"
                 title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-expanded={!isCollapsed}
               >
                 {isCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
               </button>
@@ -192,14 +212,17 @@ const Sidebar = () => {
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="relative p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 transition-colors hidden md:block"
                 title="Notifications"
+                aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+                aria-expanded={showNotifications}
+                aria-controls="notifications-panel"
               >
                 <Bell size={16} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-550 rounded-full animate-pulse" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-550 rounded-full animate-pulse" aria-hidden="true" />
                 )}
               </button>
             )}
-            <button onClick={() => setIsOpen(false)} className="md:hidden text-zinc-500 hover:text-zinc-300">
+            <button onClick={() => setIsOpen(false)} className="md:hidden text-zinc-500 hover:text-zinc-300" aria-label="Close navigation menu">
               <X size={16} />
             </button>
           </div>
@@ -207,7 +230,7 @@ const Sidebar = () => {
 
         <div className="flex-1 overflow-y-auto py-4">
           {isExpandedVisually && <div className="px-3 text-xs font-mono text-zinc-500 uppercase tracking-wider mb-2">Workspace</div>}
-          <nav className="space-y-1.5 px-2">
+          <nav className="space-y-1.5 px-2" aria-label="Primary">
             {navLinks.map((link) => {
               const isActive = link.exact 
                 ? (location.pathname === link.path || location.pathname === link.path + '/') 
@@ -227,6 +250,7 @@ const Sidebar = () => {
                       : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                   }`}
                   title={!isExpandedVisually ? link.name : ""}
+                  aria-current={(() => { const isActive = link.exact ? (location.pathname === link.path || location.pathname === link.path + '/') : location.pathname.startsWith(link.path); return isActive ? 'page' : undefined; })()}
                 >
                   <Icon size={16} className={isActive ? 'text-primary-500' : 'text-zinc-500'} />
                   {isExpandedVisually && <span>{link.name}</span>}
@@ -263,6 +287,17 @@ const Sidebar = () => {
             </Link>
           )}
 
+          <button
+            onClick={toggleTheme}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
+              isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
+            }`}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            {isExpandedVisually && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
+          </button>
+
           {user && (user.role === 'student' || user.role === 'coordinator') && (
             <button
               onClick={() => {
@@ -294,12 +329,13 @@ const Sidebar = () => {
 
       {/* Notifications Panel Overlay */}
       {showNotifications && (
+        /* Notifications panel with ARIA */
         <div className="fixed inset-0 z-40 flex justify-end md:justify-start md:pl-64 animate-fadeIn">
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowNotifications(false)} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowNotifications(false)} aria-hidden="true" />
           
           {/* Panel */}
-          <div className="relative w-full max-w-sm h-full bg-zinc-950 border-r border-zinc-850 flex flex-col z-10 shadow-2xl animate-slideOver font-sans text-zinc-100">
+          <div id="notifications-panel" role="dialog" aria-label="Notifications" className="relative w-full max-w-sm h-full bg-zinc-950 border-r border-zinc-850 flex flex-col z-10 shadow-2xl animate-slideOver font-sans text-zinc-100">
             {/* Header */}
             <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-zinc-950">
               <div className="flex items-center gap-2">
@@ -323,6 +359,7 @@ const Sidebar = () => {
                 <button 
                   onClick={() => setShowNotifications(false)}
                   className="p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900 transition-colors"
+                  aria-label="Close notifications"
                 >
                   <X size={16} />
                 </button>

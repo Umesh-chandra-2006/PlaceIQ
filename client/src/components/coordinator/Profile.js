@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { User, Shield, Building, Award, Loader2 } from 'lucide-react';
+import { User, Building, Loader2 } from 'lucide-react';
 
 const Profile = () => {
   const { user } = useAuth();
