@@ -304,7 +304,7 @@ const ResumeBuilder = () => {
       </div>
 
       {/* ── Workspace ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-y-auto lg:overflow-hidden">
         
         {/* Left pane: Active Editor View */}
         <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
@@ -668,11 +668,11 @@ const ResumeBuilder = () => {
           )}
         </div>
 
-        {/* Center/Right pane: radial preview & widget sidebar */}
-        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-4 lg:h-full lg:overflow-hidden">
+        {/* Center/Right pane: PDF preview & widget area */}
+        <div className="lg:col-span-7 flex flex-col gap-4 lg:h-full lg:overflow-hidden">
           
-          {/* Iframe preview container */}
-          <div className="md:col-span-8 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[450px] md:min-h-0 md:h-full">
+          {/* PDF preview container */}
+          <div className="flex-1 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[500px] lg:min-h-0">
             <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
               <div className="flex items-center gap-2">
@@ -689,7 +689,7 @@ const ResumeBuilder = () => {
               </div>
             </div>
             
-            <div className="flex-1 bg-zinc-900 relative h-full">
+            <div className="flex-1 bg-zinc-900 relative h-full min-h-[400px] lg:min-h-0">
               {activeMode === 'form' ? (
                 <BlobProvider document={<JakesTemplate data={resumeData} />}>
                   {({ blob, url, loading, error }) => {
@@ -711,11 +711,20 @@ const ResumeBuilder = () => {
                     }
                     return (
                       <div className="w-full h-full flex flex-col">
-                        <iframe 
-                          src={url} 
-                          className="flex-1 w-full border-0 bg-zinc-900" 
-                          title="Structured Resume PDF Preview"
-                        />
+                        <object 
+                          data={`${url}#toolbar=0&navpanes=0&view=FitH`} 
+                          type="application/pdf"
+                          className="flex-1 w-full border-0 bg-zinc-900"
+                          aria-label="Structured Resume PDF Preview"
+                        >
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-405 text-xs bg-zinc-900">
+                            <FileText size={32} className="text-zinc-700 mb-2" />
+                            <p>PDF preview loaded.</p>
+                            <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
+                              Open PDF in new tab
+                            </a>
+                          </div>
+                        </object>
                         {/* Instant Save Bar */}
                         <div className="p-3 bg-zinc-950/90 border-t border-zinc-850 flex justify-between items-center gap-3">
                           <span className="text-[10px] text-zinc-500 font-mono">PDF compiled client-side instantly.</span>
@@ -741,11 +750,20 @@ const ResumeBuilder = () => {
                     </div>
                   )}
                   {codePdfUrl ? (
-                    <iframe 
-                      src={codePdfUrl} 
-                      className="flex-1 w-full border-0 bg-zinc-900" 
-                      title="LaTeX Code PDF Preview"
-                    />
+                    <object 
+                      data={`${codePdfUrl}#toolbar=0&navpanes=0&view=FitH`} 
+                      type="application/pdf"
+                      className="flex-1 w-full border-0 bg-zinc-900"
+                      aria-label="LaTeX Code PDF Preview"
+                    >
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-405 text-xs bg-zinc-900">
+                        <FileText size={32} className="text-zinc-700 mb-2" />
+                        <p>PDF preview loaded.</p>
+                        <a href={codePdfUrl} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
+                          Open PDF in new tab
+                        </a>
+                      </div>
+                    </object>
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 text-xs text-center p-4">
                       <FileText size={32} className="text-zinc-700 mb-2" />
@@ -757,12 +775,12 @@ const ResumeBuilder = () => {
             </div>
           </div>
 
-          {/* Right widget pane */}
-          <div className="md:col-span-4 space-y-4 md:overflow-y-auto md:h-full pr-0 md:pr-1">
-            <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
-            
-            {/* Template Card Info */}
-            <div className="bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2 text-xs text-zinc-400">
+          {/* Bottom widgets area */}
+          <div className="flex flex-col sm:flex-row gap-4 h-auto shrink-0 pb-4">
+            <div className="flex-1">
+              <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
+            </div>
+            <div className="flex-1 bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2 text-xs text-zinc-400">
               <span className="font-semibold text-zinc-300 block">Jake's Resume Design</span>
               <p className="leading-relaxed text-[11px]">
                 This layout follows standard, high-readability rules optimized for applicant tracking scanners. 
@@ -770,7 +788,6 @@ const ResumeBuilder = () => {
               </p>
             </div>
           </div>
-
         </div>
 
       </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../api/axios';
-import { Target, HelpCircle, Briefcase } from 'lucide-react';
+import { Target, HelpCircle, ChevronDown } from 'lucide-react';
 
 const AtsScoreWidget = ({ resumeText }) => {
   const [jobs, setJobs] = useState([]);
@@ -129,8 +129,8 @@ const AtsScoreWidget = ({ resumeText }) => {
             <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 border rounded ${getScoreColorBgClass(score)}`}>
               Grade: {getGrade(score)}
             </span>
-            <span className="text-[10px] text-zinc-500">
-              {score >= 75 ? '🔥 Job Market Ready' : score >= 50 ? '📈 Needs Keywords' : '⚠️ Critical Review Needed'}
+            <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 border rounded ${getScoreColorBgClass(score)}`}>
+              {score >= 75 ? '🔥 Job Market Ready' : score >= 50 ? '⚠️ Needs Keywords' : '❌ Critical Review'}
             </span>
           </div>
           <p className="text-[10px] text-zinc-400 leading-normal">
@@ -159,7 +159,7 @@ const AtsScoreWidget = ({ resumeText }) => {
             ))}
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-zinc-500 border-l border-zinc-800">
-            <Briefcase size={12} />
+            <ChevronDown size={12} />
           </div>
         </div>
       </div>

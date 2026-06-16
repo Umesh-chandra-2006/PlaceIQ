@@ -119,6 +119,7 @@ body.sidebar-collapsed .md\:pl-64 {
 }
 
 .light-theme .bg-zinc-950,
+.light-theme .bg-zinc-950\/90,
 .light-theme .bg-zinc-955 {
   background-color: #ffffff !important;
 }
@@ -132,6 +133,7 @@ body.sidebar-collapsed .md\:pl-64 {
 .light-theme .bg-zinc-900\/40,
 .light-theme .bg-zinc-900\/30,
 .light-theme .bg-zinc-900\/50,
+.light-theme .bg-zinc-850,
 .light-theme .bg-zinc-900 {
   background-color: #f4f4f5 !important;
 }
