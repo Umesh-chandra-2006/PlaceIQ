@@ -121,44 +121,22 @@ const OnboardingTour = ({ role }) => {
   useEffect(() => {
     const isCompleted = localStorage.getItem(`has-completed-tour-${role}`) === 'true';
     if (!isCompleted) {
+      // Only auto-start the tour if the user is on the main landing/dashboard route.
+      // This prevents interrupting the user if they directly access a sub-page.
+      const mainPath = role === 'coordinator' ? '/coordinator' : '/student';
+      const isMainRoute = location.pathname === mainPath || location.pathname === `${mainPath}/`;
+      
+      if (!isMainRoute) return;
+
       // Small timeout to let initial page load
       const timer = setTimeout(() => {
         setIsActive(true);
         setCurrentStepIndex(0);
-        
-        // Go to first step's route if needed
-        const firstStep = steps[0];
-        if (firstStep && location.pathname !== firstStep.path) {
-          navigate(firstStep.path);
-        }
       }, 1000);
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
-
-  // Listener to restart tour if custom event or localStorage gets cleared
-  useEffect(() => {
-    const checkRestart = () => {
-      const isCompleted = localStorage.getItem(`has-completed-tour-${role}`) === 'true';
-      if (!isCompleted && !isActive) {
-        setIsActive(true);
-        setCurrentStepIndex(0);
-        if (steps[0] && location.pathname !== steps[0].path) {
-          navigate(steps[0].path);
-        }
-      }
-    };
-
-    window.addEventListener('storage', checkRestart);
-    const interval = setInterval(checkRestart, 1000); // Poll for manual resets
-    
-    return () => {
-      window.removeEventListener('storage', checkRestart);
-      clearInterval(interval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, isActive]);
+  }, [role, location.pathname]);
 
   const activeStep = steps[currentStepIndex];
 
