@@ -651,21 +651,10 @@ router.post("/resume/ats-score", protect, async (req, res) => {
       if (job) jobDescription = job.description;
     }
 
-    let score = 50;
-    if (jobDescription) {
-      const { calculateRuleBasedScore } = require("../services/ats");
-      score = calculateRuleBasedScore(resumeText, jobDescription);
-    } else {
-      // General structure quality score (word count, essential sections check)
-      const cleanLower = resumeText.toLowerCase();
-      if (cleanLower.includes("education")) score += 10;
-      if (cleanLower.includes("experience") || cleanLower.includes("work")) score += 10;
-      if (cleanLower.includes("project")) score += 10;
-      if (cleanLower.includes("skills")) score += 10;
-      if (resumeText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) score += 10;
-    }
+    const { calculateAtsDashboard } = require("../services/ats");
+    const result = calculateAtsDashboard(resumeText, jobDescription);
 
-    res.json({ score });
+    res.json(result);
   } catch (error) {
     console.error("ATS score calc error:", error);
     res.status(500).json({ error: "Failed to calculate ATS score: " + error.message });

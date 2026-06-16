@@ -129,11 +129,54 @@ describe("Student Resume Builder Routes", () => {
   });
 
   it("should calculate ATS score against a general profile check", async () => {
+    const richResumeText = `
+      John Student
+      Email: student@college.edu | Phone: +91 9999999999
+      LinkedIn: linkedin.com/in/john | GitHub: github.com/john
+      Location: Bangalore, India
+      
+      Education
+      College of Engineering, B.Tech in Computer Science
+      CGPA: 9.8 / 10
+      
+      Experience
+      Software Engineer Intern
+      - Built and developed high-performance web applications using React and Node.js.
+      - Optimized database queries in MongoDB and led a team of three developers.
+      - Implemented responsive UI designs and designed REST APIs.
+      - Integrated external APIs and solved complex scaling issues.
+      - Reduced load times by 40% and increased user engagement.
+      - Managed project deployment pipelines.
+      - Collaborated with product managers to define requirements.
+      - Maintained high test coverage across all services.
+      
+      Projects
+      PlaceIQ Platform
+      - Created a robust live ATS review widget using JavaScript, HTML, and CSS.
+      - Used Express and Git for collaborative development.
+      - Deployed on AWS using Docker.
+      
+      Skills
+      Languages: React, Node, Express, MongoDB, Python, JavaScript, HTML, CSS, Git, SQL, Java, C++, Docker, AWS, TypeScript, REST.
+      
+      Additional detailed descriptions to ensure the word count is well over 300 words. We want to demonstrate that the candidate has extensive experience and has worked on multiple projects. This includes writing detailed technical documentation, defining requirements, participating in sprint planning, conducting code reviews, writing unit tests, deploying to staging and production environments, and collaborating with cross-functional teams.
+    `;
+
     const res = await request(app)
       .post("/api/students/resume/ats-score")
-      .send({ resumeText: "education experience project skills student@college.edu" });
+      .send({ resumeText: richResumeText });
 
     expect(res.statusCode).toBe(200);
     expect(res.body.score).toBeGreaterThanOrEqual(90);
+    expect(res.body.grade).toBeDefined();
+    expect(res.body.breakdown).toBeDefined();
+    expect(res.body.breakdown.keywords).toBeGreaterThanOrEqual(80);
+    expect(res.body.breakdown.formatting).toBeGreaterThanOrEqual(90);
+    expect(res.body.breakdown.experience).toBeGreaterThanOrEqual(90);
+    expect(res.body.breakdown.projects).toBeGreaterThanOrEqual(90);
+    expect(res.body.breakdown.education).toBeGreaterThanOrEqual(90);
+    expect(res.body.matchedKeywords).toBeDefined();
+    expect(res.body.missingKeywords).toBeDefined();
+    expect(res.body.healthInsights).toBeDefined();
   });
 });
