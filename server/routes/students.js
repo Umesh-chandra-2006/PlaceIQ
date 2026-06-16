@@ -465,4 +465,211 @@ router.post("/resume/save", protect, async (req, res) => {
   }
 });
 
+function convertResumeDataToText(data) {
+  if (!data) return "";
+  const parts = [];
+  if (data.personal) {
+    parts.push(data.personal.name || "");
+    parts.push(data.personal.email || "");
+    parts.push(data.personal.phone || "");
+    parts.push(data.personal.location || "");
+  }
+  if (Array.isArray(data.education)) {
+    data.education.forEach(e => {
+      parts.push(e.institution || "");
+      parts.push(e.degree || "");
+      parts.push(e.field || "");
+      parts.push(e.cgpa || "");
+    });
+  }
+  if (Array.isArray(data.experience)) {
+    data.experience.forEach(exp => {
+      parts.push(exp.company || "");
+      parts.push(exp.role || "");
+      if (Array.isArray(exp.bullets)) {
+        parts.push(...exp.bullets);
+      }
+    });
+  }
+  if (Array.isArray(data.projects)) {
+    data.projects.forEach(p => {
+      parts.push(p.name || "");
+      parts.push(p.technologies || "");
+      if (Array.isArray(p.bullets)) {
+        parts.push(...p.bullets);
+      }
+    });
+  }
+  if (data.skills) {
+    parts.push(data.skills.languages || "");
+    parts.push(data.skills.frameworks || "");
+    parts.push(data.skills.tools || "");
+  }
+  return parts.filter(Boolean).join("\n");
+}
+
+function getDefaultResumeData(user) {
+  const name = user.name || "Student Name";
+  const email = user.email || "student@college.edu";
+  const phone = user.phone || "+91 9876543210";
+  const dept = user.department || user.branch || "Computer Science & Engineering";
+  const cgpa = user.cgpa ? user.cgpa.toString() : "8.5";
+  const tenth = user.tenthPercent ? user.tenthPercent.toString() : "90";
+  const twelfth = user.twelfthPercent ? user.twelfthPercent.toString() : "88";
+  const skillsList = user.skills && user.skills.length > 0 ? user.skills.join(", ") : "React, Node.js, Express, MongoDB, Python, Git";
+
+  return {
+    personal: {
+      name,
+      email,
+      phone,
+      github: "https://github.com/",
+      linkedin: "https://linkedin.com/in/",
+      location: "India"
+    },
+    education: [
+      {
+        institution: "College Education",
+        degree: "Bachelor of Technology",
+        field: dept,
+        cgpa,
+        startDate: "Aug 2022",
+        endDate: "May 2026"
+      },
+      {
+        institution: "High School",
+        degree: "Class 12th Board",
+        field: "Science",
+        cgpa: twelfth + "%",
+        startDate: "Apr 2020",
+        endDate: "Mar 2022"
+      },
+      {
+        institution: "Secondary School",
+        degree: "Class 10th Board",
+        field: "General Education",
+        cgpa: tenth + "%",
+        startDate: "Apr 2018",
+        endDate: "Mar 2020"
+      }
+    ],
+    experience: [
+      {
+        company: "PlaceIQ Corp",
+        role: "Software Developer Intern",
+        startDate: "May 2025",
+        endDate: "July 2025",
+        bullets: [
+          "Optimized backend queries and database schemas for faster lookup response times.",
+          "Designed multi-tenant authentication and user onboarding layout dashboards."
+        ]
+      }
+    ],
+    projects: [
+      {
+        name: "PlaceIQ Placement Portal",
+        technologies: "React, Node.js, Express, MongoDB, TailwindCSS",
+        startDate: "Jan 2026",
+        endDate: "Present",
+        bullets: [
+          "Built a high-fidelity client-side CV builder using React-PDF with real-time preview layouts.",
+          "Designed dynamic ATS keyword matching and review scoring widgets."
+        ]
+      }
+    ],
+    skills: {
+      languages: "JavaScript, Python, C++, SQL",
+      frameworks: "React, Express, Node.js, TailwindCSS",
+      tools: "Git, Docker, Postman, MongoDB"
+    }
+  };
+}
+
+// GET /api/students/resume/data
+router.get("/resume/data", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== "student") {
+      return res.status(403).json({ error: "Only students can fetch resume data." });
+    }
+
+    let data = user.resumeData;
+    if (!data) {
+      data = getDefaultResumeData(user);
+    }
+
+    res.json({ resumeData: data });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch resume data: " + error.message });
+  }
+});
+
+// POST /api/students/resume/data
+router.post("/resume/data", protect, async (req, res) => {
+  try {
+    const { resumeData, pdfBase64 } = req.body;
+    if (!resumeData) return res.status(400).json({ error: "No resume data provided." });
+
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== "student") {
+      return res.status(403).json({ error: "Only students can save resume data." });
+    }
+
+    user.resumeData = resumeData;
+    user.resumeText = convertResumeDataToText(resumeData);
+    user.resumeUpdatedAt = Date.now();
+
+    // If PDF base64 is provided, decode and save to file storage
+    if (pdfBase64) {
+      const buffer = Buffer.from(pdfBase64, "base64");
+      const fileUrl = await uploadFile(buffer, "resume.pdf", "resume", user._id);
+      user.resumeUrl = fileUrl;
+    }
+
+    await user.save();
+
+    res.json({
+      message: "Resume data saved and synced successfully.",
+      resumeUrl: user.resumeUrl
+    });
+  } catch (error) {
+    console.error("Save resume data error:", error);
+    res.status(500).json({ error: "Failed to save resume data: " + error.message });
+  }
+});
+
+// POST /api/students/resume/ats-score
+router.post("/resume/ats-score", protect, async (req, res) => {
+  try {
+    const { resumeText, jobId } = req.body;
+    if (!resumeText) return res.status(400).json({ error: "No resume text provided." });
+
+    let jobDescription = "";
+    if (jobId) {
+      const Job = require("../models/Job");
+      const job = await Job.findOne({ _id: jobId, collegeId: req.user.collegeId });
+      if (job) jobDescription = job.description;
+    }
+
+    let score = 50;
+    if (jobDescription) {
+      const { calculateRuleBasedScore } = require("../services/ats");
+      score = calculateRuleBasedScore(resumeText, jobDescription);
+    } else {
+      // General structure quality score (word count, essential sections check)
+      const cleanLower = resumeText.toLowerCase();
+      if (cleanLower.includes("education")) score += 10;
+      if (cleanLower.includes("experience") || cleanLower.includes("work")) score += 10;
+      if (cleanLower.includes("project")) score += 10;
+      if (cleanLower.includes("skills")) score += 10;
+      if (resumeText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) score += 10;
+    }
+
+    res.json({ score });
+  } catch (error) {
+    console.error("ATS score calc error:", error);
+    res.status(500).json({ error: "Failed to calculate ATS score: " + error.message });
+  }
+});
+
 module.exports = router;

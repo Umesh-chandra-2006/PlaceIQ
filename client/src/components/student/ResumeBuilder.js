@@ -1,282 +1,245 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from '../../api/axios';
+import { BlobProvider } from '@react-pdf/renderer';
+import JakesTemplate from './JakesTemplate';
+import AtsScoreWidget from './AtsScoreWidget';
 import { 
-  FileText, Play, Save, Sparkles, RefreshCw, AlertTriangle, 
-  HelpCircle, Download, FileCode, CheckCircle, ChevronDown
+  FileText, Play, Save, RefreshCw, AlertTriangle, 
+  CheckCircle, Plus, Trash2, 
+  GraduationCap, Code, FileSignature
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const templates = {
-  deedy: {
-    name: "Deedy Style Professional",
-    description: "Standard layout for technical and product roles."
-  },
-  minimal: {
-    name: "Minimalist Single-Column",
-    description: "Clean, elegant layout emphasizing readability."
-  },
-  academic: {
-    name: "Modern Academic",
-    description: "Formatted specifically for research, projects and education."
-  }
-};
-
 const ResumeBuilder = () => {
+  const [activeMode, setActiveMode] = useState('form'); // 'form' or 'code'
+  const [resumeData, setResumeData] = useState(null);
   const [latexSource, setLatexSource] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('deedy');
-  const [compiling, setCompiling] = useState(false);
+  const [compilingCode, setCompilingCode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(null);
-  const [fallbackMode, setFallbackMode] = useState(false);
-  const [studentInfo, setStudentInfo] = useState(null);
+  const [codePdfUrl, setCodePdfUrl] = useState(null);
+  const [codeFallback, setCodeFallback] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const textareaRef = useRef(null);
 
-  // Fetch student info and initial LaTeX source code
+  // Fetch initial data
   useEffect(() => {
-    const init = async () => {
+    const loadData = async () => {
       try {
-        const infoRes = await axios.get('/students/me');
-        setStudentInfo(infoRes.data);
+        const { data: resData } = await axios.get('/students/resume/data');
+        setResumeData(resData.resumeData);
+
+        const { data: sourceData } = await axios.get('/students/resume/source');
+        setLatexSource(sourceData.latexSource);
         
-        const sourceRes = await axios.get('/students/resume/source');
-        setLatexSource(sourceRes.data.latexSource);
-        
-        // Initial compile to populate preview
-        compileResume(sourceRes.data.latexSource, infoRes.data?.name);
+        // Compile initial LaTeX preview in background
+        if (sourceData.latexSource) {
+          compileLatexCode(sourceData.latexSource);
+        }
       } catch (err) {
         toast.error("Failed to load resume workspace.");
       }
     };
-    init();
+    loadData();
     
     return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+      if (codePdfUrl) URL.revokeObjectURL(codePdfUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const compileResume = async (sourceCode = latexSource, studentName = studentInfo?.name) => {
+  // Helpers for structural updates
+  const updatePersonal = (field, val) => {
+    setResumeData(prev => ({
+      ...prev,
+      personal: { ...prev.personal, [field]: val }
+    }));
+  };
+
+  const updateEducation = (index, field, val) => {
+    const updated = [...resumeData.education];
+    updated[index] = { ...updated[index], [field]: val };
+    setResumeData(prev => ({ ...prev, education: updated }));
+  };
+
+  const addEducation = () => {
+    const empty = { institution: '', degree: '', field: '', cgpa: '', startDate: '', endDate: '' };
+    setResumeData(prev => ({ ...prev, education: [...prev.education, empty] }));
+  };
+
+  const deleteEducation = (index) => {
+    const updated = resumeData.education.filter((_, idx) => idx !== index);
+    setResumeData(prev => ({ ...prev, education: updated }));
+  };
+
+  const updateExperience = (index, field, val) => {
+    const updated = [...resumeData.experience];
+    updated[index] = { ...updated[index], [field]: val };
+    setResumeData(prev => ({ ...prev, experience: updated }));
+  };
+
+  const updateExperienceBullet = (expIndex, bulletIndex, val) => {
+    const updatedExp = [...resumeData.experience];
+    const updatedBullets = [...updatedExp[expIndex].bullets];
+    updatedBullets[bulletIndex] = val;
+    updatedExp[expIndex] = { ...updatedExp[expIndex], bullets: updatedBullets };
+    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+  };
+
+  const addExperienceBullet = (expIndex) => {
+    const updatedExp = [...resumeData.experience];
+    updatedExp[expIndex] = { 
+      ...updatedExp[expIndex], 
+      bullets: [...(updatedExp[expIndex].bullets || []), ''] 
+    };
+    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+  };
+
+  const deleteExperienceBullet = (expIndex, bulletIndex) => {
+    const updatedExp = [...resumeData.experience];
+    const updatedBullets = updatedExp[expIndex].bullets.filter((_, idx) => idx !== bulletIndex);
+    updatedExp[expIndex] = { ...updatedExp[expIndex], bullets: updatedBullets };
+    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+  };
+
+  const addExperience = () => {
+    const empty = { company: '', role: '', startDate: '', endDate: '', bullets: [''] };
+    setResumeData(prev => ({ ...prev, experience: [...prev.experience, empty] }));
+  };
+
+  const deleteExperience = (index) => {
+    const updated = resumeData.experience.filter((_, idx) => idx !== index);
+    setResumeData(prev => ({ ...prev, experience: updated }));
+  };
+
+  const updateProject = (index, field, val) => {
+    const updated = [...resumeData.projects];
+    updated[index] = { ...updated[index], [field]: val };
+    setResumeData(prev => ({ ...prev, projects: updated }));
+  };
+
+  const updateProjectBullet = (projIndex, bulletIndex, val) => {
+    const updatedProj = [...resumeData.projects];
+    const updatedBullets = [...updatedProj[projIndex].bullets];
+    updatedBullets[bulletIndex] = val;
+    updatedProj[projIndex] = { ...updatedProj[projIndex], bullets: updatedBullets };
+    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+  };
+
+  const addProjectBullet = (projIndex) => {
+    const updatedProj = [...resumeData.projects];
+    updatedProj[projIndex] = { 
+      ...updatedProj[projIndex], 
+      bullets: [...(updatedProj[projIndex].bullets || []), ''] 
+    };
+    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+  };
+
+  const deleteProjectBullet = (projIndex, bulletIndex) => {
+    const updatedProj = [...resumeData.projects];
+    const updatedBullets = updatedProj[projIndex].bullets.filter((_, idx) => idx !== bulletIndex);
+    updatedProj[projIndex] = { ...updatedProj[projIndex], bullets: updatedBullets };
+    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+  };
+
+  const addProject = () => {
+    const empty = { name: '', technologies: '', startDate: '', endDate: '', bullets: [''] };
+    setResumeData(prev => ({ ...prev, projects: [...prev.projects, empty] }));
+  };
+
+  const deleteProject = (index) => {
+    const updated = resumeData.projects.filter((_, idx) => idx !== index);
+    setResumeData(prev => ({ ...prev, projects: updated }));
+  };
+
+  const updateSkill = (field, val) => {
+    setResumeData(prev => ({
+      ...prev,
+      skills: { ...prev.skills, [field]: val }
+    }));
+  };
+
+  // Compile LaTeX code mode
+  const compileLatexCode = async (sourceCode = latexSource) => {
     if (!sourceCode) return;
-    setCompiling(true);
+    setCompilingCode(true);
     try {
       const response = await axios.post('/students/resume/compile', 
         { latexSource: sourceCode },
         { responseType: 'blob' }
       );
-      
       const isFallback = response.headers['x-latex-fallback'] === 'true';
-      setFallbackMode(isFallback);
+      setCodeFallback(isFallback);
 
-      // Create blob URL for PDF preview
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(url);
-      
-      if (isFallback) {
-        toast((t) => (
-          <span className="flex items-center gap-2 text-amber-500 font-medium text-xs">
-            <AlertTriangle size={16} />
-            LaTeX compiler not found on server. Using simulated fallback preview.
-          </span>
-        ), { duration: 4000 });
-      } else {
-        toast.success("Compiled successfully!");
-      }
+      if (codePdfUrl) URL.revokeObjectURL(codePdfUrl);
+      setCodePdfUrl(url);
     } catch (err) {
-      console.error(err);
-      toast.error("Compilation failed. Check LaTeX syntax.");
+      toast.error("LaTeX compilation failed.");
     } finally {
-      setCompiling(false);
+      setCompilingCode(false);
     }
   };
 
-  const handleSave = async () => {
+  // Save structured JSON form resume
+  const handleSaveForm = async (blob) => {
+    if (!blob) return;
     setSaving(true);
     try {
-      const { data } = await axios.post('/students/resume/save', { latexSource });
-      toast.success(data.fallback ? "Resume saved (simulated compile)" : "Resume published to placement profile!");
-      
-      // Update studentInfo locally to sync profile details
-      const infoRes = await axios.get('/students/me');
-      setStudentInfo(infoRes.data);
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        const base64data = reader.result.split(',')[1];
+        await axios.post('/students/resume/data', {
+          resumeData,
+          pdfBase64: base64data
+        });
+        toast.success("Resume saved and published to profile!");
+      };
     } catch (err) {
-      toast.error("Failed to save and publish resume.");
+      toast.error("Failed to save resume.");
     } finally {
       setSaving(false);
     }
   };
 
-  const applyTemplate = (key) => {
-    if (!studentInfo) return;
-    setSelectedTemplate(key);
-    
-    const name = studentInfo.name || "Student Name";
-    const email = studentInfo.email || "student@college.edu";
-    const phone = studentInfo.phone || "+91 9876543210";
-    const dept = studentInfo.department || studentInfo.branch || "Computer Science";
-    const cgpa = studentInfo.cgpa ? studentInfo.cgpa.toString() : "8.5";
-    const tenth = studentInfo.tenthPercent ? studentInfo.tenthPercent.toString() : "90";
-    const twelfth = studentInfo.twelfthPercent ? studentInfo.twelfthPercent.toString() : "88";
-    const skillsList = studentInfo.skills && studentInfo.skills.length > 0 ? studentInfo.skills.join(", ") : "React, Node.js, Express, MongoDB, Python, Git";
-
-    let templateSource = '';
-    
-    if (key === 'deedy') {
-      templateSource = `\\documentclass[10pt,letterpaper]{article}
-\\usepackage[letterpaper,margin=0.75in]{geometry}
-\\usepackage[utf8]{inputenc}
-\\usepackage{hyperref}
-\\usepackage{titlesec}
-\\usepackage{enumitem}
-
-\\titleformat{\\section}{\\large\\bfseries}{}{0em}{}[\\titlerule]
-\\titlespacing{\\section}{0pt}{10pt}{5pt}
-\\pagestyle{empty}
-
-\\begin{document}
-
-\\begin{center}
-    {\\LARGE \\textbf{${name}}} \\\\
-    Email: ${email} \\ | \\ Phone: ${phone} \\\\
-    Department: ${dept} \\ | \\ CGPA: ${cgpa}
-\\end{center}
-
-\\section{Education}
-\\begin{itemize}[leftmargin=*]
-    \\item \\textbf{College Education} \\\\
-    Bachelor of Technology in ${dept} \\hfill CGPA: ${cgpa} \\\\
-    \\item \\textbf{High School (12th Grade)} \\hfill Percentage: ${twelfth}\\%
-    \\item \\textbf{Secondary School (10th Grade)} \\hfill Percentage: ${tenth}\\%
-\\end{itemize}
-
-\\section{Skills}
-\\begin{itemize}[leftmargin=*]
-    \\item \\textbf{Technical Skills:} ${skillsList}
-\\end{itemize}
-
-\\section{Projects}
-\\begin{itemize}[leftmargin=*]
-    \\item \\textbf{Project 1: Online Placement Portal (PlaceIQ)} \\hfill \\textit{Jan 2026 -- Present}
-    \\begin{itemize}
-        \\item Built a fully functional multi-tenant college placement portal using Node.js, Express, React, and MongoDB.
-        \\item Integrated AI-powered resume parsing and ATS scoring using meta-llama on OpenRouter.
-    \\end{itemize}
-    \\item \\textbf{Project 2: Job Scraper Microservice} \\hfill \\textit{Feb 2026}
-    \\begin{itemize}
-        \\item Created a FastAPI web scraping microservice with Python Playwright to pull dynamic postings.
-    \\end{itemize}
-\\end{itemize}
-
-\\section{Experience}
-\\begin{itemize}[leftmargin=*]
-    \\item \\textbf{Software Engineer Intern} | PlaceIQ Corp \\hfill \\textit{May 2025 -- July 2025}
-    \\begin{itemize}
-        \\item Optimized database queries and indexes, decreasing search latency by 40\\%.
-        \\item Created responsive superadmin dashboards and student onboarding guides.
-    \\end{itemize}
-\\end{itemize}
-
-\\end{document}`;
-    } else if (key === 'minimal') {
-      templateSource = `\\documentclass[11pt,a4paper]{article}
-\\usepackage[a4paper,margin=1in]{geometry}
-\\usepackage[utf8]{inputenc}
-\\usepackage{hyperref}
-\\usepackage{enumitem}
-
-\\pagestyle{empty}
-\\setlength{\\parindent}{0pt}
-
-\\begin{document}
-
-{\\LARGE \\textbf{${name}}} \\\\
-${email} \\ | \\ ${phone} \\ | \\ Dept: ${dept}
-
-\\vspace{1em}
-\\hrule
-\\vspace{1em}
-
-\\textbf{EDUCATION} \\\\
-\\textbf{College Education} \\hfill CGPA: ${cgpa} \\\\
-Bachelor of Technology in ${dept} \\\\
-\\textbf{12th Grade:} ${twelfth}\\% \\ | \\ \\textbf{10th Grade:} ${tenth}\\%
-
-\\vspace{1em}
-\\textbf{TECHNICAL SKILLS} \\\\
-${skillsList}
-
-\\vspace{1em}
-\\textbf{ACADEMIC PROJECTS} \\\\
-\\textbf{PlaceIQ Placement Portal} \\hfill \\textit{Jan 2026} \\\\
-Developed a React/Node placement engine with multi-tenant dashboard and ATS matching.
-
-\\vspace{0.5em}
-\\textbf{Playwright Job Scraper} \\hfill \\textit{Feb 2026} \\\\
-Scraped job info from career pages using Python Playwright and metadata parser.
-
-\\vspace{1em}
-\\textbf{EXPERIENCE} \\\\
-\\textbf{Software Developer Intern} --- PlaceIQ \\hfill \\textit{May 2025 -- July 2025} \\\\
-Wrote integration tests and optimized API handlers.
-
-\\end{document}`;
-    } else {
-      templateSource = `\\documentclass[10pt,letterpaper]{article}
-\\usepackage[letterpaper,margin=0.8in]{geometry}
-\\pagestyle{empty}
-\\begin{document}
-
-\\begin{center}
-    {\\large \\textbf{${name.toUpperCase()}}} \\\\
-    ${email} \\ | \\ ${phone} \\\\
-    CGPA: ${cgpa} \\ | \\ branch: ${dept}
-\\end{center}
-
-\\textbf{EDUCATION}
-\\hrule
-\\vspace{0.5em}
-B.Tech in ${dept} \\hfill Cumulative CGPA: ${cgpa} \\\\
-12th Standard Board Exam \\hfill Percentage: ${twelfth}\\% \\\\
-10th Standard Board Exam \\hfill Percentage: ${tenth}\\%
-
-\\vspace{1em}
-\\textbf{TECHNICAL EXPERIENCE}
-\\hrule
-\\vspace{0.5em}
-\\textbf{PlaceIQ Online Portal} \\hfill \\textit{React, Node, Express, MongoDB} \\\\
-* Integrated robust ATS review feedback with custom rule scorers. \\\\
-* Built visual application pipelines with Kanban columns.
-
-\\vspace{1.2em}
-\\textbf{TECHNICAL SKILLS}
-\\hrule
-\\vspace{0.5em}
-Languages \\& Frameworks: ${skillsList}
-
-\\end{document}`;
+  // Save raw LaTeX Code resume
+  const handleSaveCode = async () => {
+    setSaving(true);
+    try {
+      await axios.post('/students/resume/save', { latexSource });
+      toast.success("LaTeX source code and PDF published!");
+      if (codePdfUrl) compileLatexCode();
+    } catch (err) {
+      toast.error("Failed to save LaTeX resume.");
+    } finally {
+      setSaving(false);
     }
-    
-    setLatexSource(templateSource);
-    compileResume(templateSource, name);
   };
 
-  const handleDownload = () => {
-    if (!pdfUrl) return;
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = `${studentInfo?.name?.replace(/\s+/g, '_') || 'Resume'}_LaTeX.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Extract clean text representation for live ATS widget evaluation
+  const getResumeTextRepresentation = () => {
+    if (activeMode === 'code') return latexSource;
+    if (!resumeData) return "";
+    const parts = [
+      resumeData.personal?.name,
+      resumeData.personal?.email,
+      resumeData.personal?.location,
+      ...(resumeData.education || []).map(e => `${e.institution} ${e.degree} ${e.field}`),
+      ...(resumeData.experience || []).flatMap(exp => [exp.company, exp.role, ...(exp.bullets || [])]),
+      ...(resumeData.projects || []).flatMap(p => [p.name, p.technologies, ...(p.bullets || [])]),
+      resumeData.skills?.languages,
+      resumeData.skills?.frameworks,
+      resumeData.skills?.tools
+    ];
+    return parts.filter(Boolean).join("\n");
   };
 
+  // Insert LaTeX command helpers
   const insertLatexCmd = (cmd) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
-    
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const text = textarea.value;
@@ -284,231 +247,554 @@ Languages \\& Frameworks: ${skillsList}
     const after = text.substring(end, text.length);
     
     let insertion = '';
-    let cursorOffset = 0;
+    let offset = 0;
     
-    switch (cmd) {
-      case 'bold':
-        insertion = '\\textbf{}';
-        cursorOffset = 8;
-        break;
-      case 'italic':
-        insertion = '\\textit{}';
-        cursorOffset = 8;
-        break;
-      case 'item':
-        insertion = '\\item ';
-        cursorOffset = 6;
-        break;
-      case 'section':
-        insertion = '\\section{}';
-        cursorOffset = 9;
-        break;
-      default:
-        return;
-    }
+    if (cmd === 'bold') { insertion = '\\textbf{}'; offset = 8; }
+    else if (cmd === 'italic') { insertion = '\\textit{}'; offset = 8; }
+    else if (cmd === 'item') { insertion = '\\item '; offset = 6; }
+    else if (cmd === 'section') { insertion = '\\section{}'; offset = 9; }
     
     setLatexSource(before + insertion + after);
     setTimeout(() => {
       textarea.focus();
-      textarea.setSelectionRange(start + cursorOffset, start + cursorOffset);
+      textarea.setSelectionRange(start + offset, start + offset);
     }, 50);
   };
 
+  if (!resumeData) {
+    return (
+      <div className="h-[60vh] flex items-center justify-center">
+        <RefreshCw size={24} className="animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col gap-4 text-zinc-100">
-      {/* ── Control Bar ── */}
+      
+      {/* ── Top Dashboard Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/40 p-4 border border-zinc-800/80 rounded-xl">
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-primary-500/10 rounded-lg text-primary-500">
-            <FileCode size={20} />
+            <FileSignature size={20} />
           </div>
           <div>
-            <h1 className="font-semibold text-zinc-200">LaTeX Resume Builder</h1>
-            <p className="text-xs text-zinc-500">Edit source code, compile dynamically, and publish directly.</p>
+            <h1 className="font-semibold text-zinc-200">Interactive Resume Workspace</h1>
+            <p className="text-xs text-zinc-500">Separates text content from LaTeX quality templates client-side.</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Template Dropdown */}
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs hover:border-zinc-700 hover:text-zinc-200 transition-colors">
-              <Sparkles size={14} className="text-primary-500" />
-              Template: {templates[selectedTemplate]?.name || 'Custom'}
-              <ChevronDown size={14} className="text-zinc-500" />
-            </button>
-            <div className="absolute right-0 top-full mt-1.5 w-64 bg-zinc-950 border border-zinc-800 rounded-lg shadow-2xl overflow-hidden hidden group-hover:block z-50">
-              <div className="p-2 border-b border-zinc-800/50 bg-zinc-900/20 text-[10px] uppercase font-mono tracking-widest text-zinc-500">Select Template</div>
-              <div className="p-1 divide-y divide-zinc-900">
-                {Object.entries(templates).map(([key, details]) => (
-                  <button
-                    key={key}
-                    onClick={() => applyTemplate(key)}
-                    className="w-full text-left p-2.5 hover:bg-zinc-900 rounded-md transition-colors flex flex-col"
-                  >
-                    <span className="text-xs font-semibold text-zinc-300">{details.name}</span>
-                    <span className="text-[10px] text-zinc-500 mt-0.5">{details.description}</span>
+        {/* Tab Selector Toggle */}
+        <div className="flex bg-zinc-950 p-1 border border-zinc-850 rounded-lg">
+          <button
+            onClick={() => setActiveMode('form')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${activeMode === 'form' ? 'bg-zinc-850 text-primary-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+          >
+            <GraduationCap size={14} />
+            Form Builder
+          </button>
+          <button
+            onClick={() => setActiveMode('code')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${activeMode === 'code' ? 'bg-zinc-850 text-primary-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+          >
+            <Code size={14} />
+            Advanced LaTeX
+          </button>
+        </div>
+      </div>
+
+      {/* ── Workspace ── */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        
+        {/* Left pane: Active Editor View */}
+        <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-y-auto shadow-xl max-h-[calc(100vh-14rem)]">
+          {activeMode === 'form' ? (
+            <div className="p-5 space-y-6">
+              <h2 className="text-sm font-bold border-b border-zinc-800 pb-2 text-zinc-300">Resume Details Form</h2>
+              
+              {/* Personal Section */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-mono uppercase tracking-widest text-primary-500">Contact Details</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">Full Name</label>
+                    <input 
+                      value={resumeData.personal?.name || ''} 
+                      onChange={e => updatePersonal('name', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">Email</label>
+                    <input 
+                      value={resumeData.personal?.email || ''} 
+                      onChange={e => updatePersonal('email', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">Phone</label>
+                    <input 
+                      value={resumeData.personal?.phone || ''} 
+                      onChange={e => updatePersonal('phone', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">Location</label>
+                    <input 
+                      value={resumeData.personal?.location || ''} 
+                      onChange={e => updatePersonal('location', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">LinkedIn Profile Link</label>
+                    <input 
+                      value={resumeData.personal?.linkedin || ''} 
+                      onChange={e => updatePersonal('linkedin', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-zinc-400 mb-1">GitHub Link</label>
+                    <input 
+                      value={resumeData.personal?.github || ''} 
+                      onChange={e => updatePersonal('github', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Education Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-900 pb-1">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-primary-500">Education Details</h3>
+                  <button onClick={addEducation} className="flex items-center gap-1 text-[10px] text-primary-400 hover:text-primary-300 font-semibold">
+                    <Plus size={12} /> Add School
                   </button>
+                </div>
+                {resumeData.education?.map((edu, idx) => (
+                  <div key={idx} className="bg-zinc-900/30 p-3 border border-zinc-900 rounded-lg space-y-3 relative">
+                    <button onClick={() => deleteEducation(idx)} className="absolute top-2 right-2 text-zinc-500 hover:text-red-500">
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Institution</label>
+                        <input 
+                          value={edu.institution || ''} 
+                          onChange={e => updateEducation(idx, 'institution', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Degree</label>
+                        <input 
+                          value={edu.degree || ''} 
+                          onChange={e => updateEducation(idx, 'degree', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Field / Department</label>
+                        <input 
+                          value={edu.field || ''} 
+                          onChange={e => updateEducation(idx, 'field', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">CGPA / Score</label>
+                        <input 
+                          value={edu.cgpa || ''} 
+                          onChange={e => updateEducation(idx, 'cgpa', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Start Date (e.g. Aug 2022)</label>
+                        <input 
+                          value={edu.startDate || ''} 
+                          onChange={e => updateEducation(idx, 'startDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">End Date (e.g. May 2026)</label>
+                        <input 
+                          value={edu.endDate || ''} 
+                          onChange={e => updateEducation(idx, 'endDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          </div>
 
-          <button 
-            onClick={() => compileResume()}
-            disabled={compiling || !latexSource}
-            className="flex items-center gap-2 px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded-lg transition-all border border-zinc-700/50 disabled:opacity-40"
-          >
-            {compiling ? <RefreshCw size={14} className="animate-spin text-primary-500" /> : <Play size={14} className="text-emerald-500" />}
-            {compiling ? 'Compiling...' : 'Compile'}
-          </button>
+              {/* Experience Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-900 pb-1">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-primary-500">Work Experience</h3>
+                  <button onClick={addExperience} className="flex items-center gap-1 text-[10px] text-primary-400 hover:text-primary-300 font-semibold">
+                    <Plus size={12} /> Add Experience
+                  </button>
+                </div>
+                {resumeData.experience?.map((exp, idx) => (
+                  <div key={idx} className="bg-zinc-900/30 p-3 border border-zinc-900 rounded-lg space-y-3 relative">
+                    <button onClick={() => deleteExperience(idx)} className="absolute top-2 right-2 text-zinc-500 hover:text-red-500">
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Company</label>
+                        <input 
+                          value={exp.company || ''} 
+                          onChange={e => updateExperience(idx, 'company', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Role</label>
+                        <input 
+                          value={exp.role || ''} 
+                          onChange={e => updateExperience(idx, 'role', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Start Date</label>
+                        <input 
+                          value={exp.startDate || ''} 
+                          onChange={e => updateExperience(idx, 'startDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">End Date</label>
+                        <input 
+                          value={exp.endDate || ''} 
+                          onChange={e => updateExperience(idx, 'endDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
 
-          <button 
-            onClick={handleSave}
-            disabled={saving || compiling || !latexSource}
-            className="flex items-center gap-2 px-4 py-1.5 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg transition-all disabled:opacity-40 shadow-lg shadow-primary-500/10"
-          >
-            {saving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? 'Saving...' : 'Publish to Profile'}
-          </button>
-
-          {pdfUrl && (
-            <button 
-              onClick={handleDownload}
-              title="Download PDF"
-              className="p-1.5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg hover:text-zinc-200 transition-colors"
-            >
-              <Download size={15} />
-            </button>
-          )}
-
-          <button 
-            onClick={() => setShowHelp(!showHelp)}
-            title="Help & Info"
-            className={`p-1.5 rounded-lg border transition-colors ${showHelp ? 'bg-primary-500/15 border-primary-500/35 text-primary-400' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'}`}
-          >
-            <HelpCircle size={15} />
-          </button>
-        </div>
-      </div>
-
-      {/* ── Warning Fallback Banner ── */}
-      {fallbackMode && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-500">
-          <div className="flex items-center gap-2 text-xs">
-            <AlertTriangle size={16} />
-            <span><strong>Simulated Compilation:</strong> The local server does not have the native LaTeX (pdflatex) executable installed. PlaceIQ has safely simulated the PDF preview format below. For native LaTeX compiles, install TeX Live on the server.</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Main Workspace ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
-        {/* Left pane: LaTeX Source Editor */}
-        <div className="flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl">
-          {/* Editor Header */}
-          <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">source.tex</span>
-            
-            {/* Formatting Commands */}
-            <div className="flex items-center gap-1">
-              <button 
-                onClick={() => insertLatexCmd('bold')} 
-                className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-bold font-mono text-zinc-400 hover:text-zinc-200"
-                title="Bold Text"
-              >
-                B
-              </button>
-              <button 
-                onClick={() => insertLatexCmd('italic')} 
-                className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] italic font-mono text-zinc-400 hover:text-zinc-200"
-                title="Italic Text"
-              >
-                I
-              </button>
-              <button 
-                onClick={() => insertLatexCmd('section')} 
-                className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-mono text-zinc-400 hover:text-zinc-200"
-                title="New Section"
-              >
-                Sec
-              </button>
-              <button 
-                onClick={() => insertLatexCmd('item')} 
-                className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-mono text-zinc-400 hover:text-zinc-200"
-                title="Bullet Point"
-              >
-                • Item
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            ref={textareaRef}
-            value={latexSource}
-            onChange={(e) => setLatexSource(e.target.value)}
-            className="flex-1 w-full p-4 bg-zinc-950 font-mono text-xs text-zinc-300 focus:outline-none resize-none leading-relaxed select-text cursor-text border-0"
-            placeholder="% Type LaTeX Resume Code Here..."
-          />
-        </div>
-
-        {/* Right pane: PDF Previewer */}
-        <div className="flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[400px]">
-          <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
-            {fallbackMode && (
-              <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">
-                <AlertTriangle size={10} /> FALLBACK
-              </span>
-            )}
-          </div>
-          
-          <div className="flex-1 bg-zinc-900 relative">
-            {compiling && (
-              <div className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-10">
-                <RefreshCw size={28} className="animate-spin text-primary-500" />
-                <span className="text-xs text-zinc-400 font-medium font-mono">Compiling LaTeX...</span>
+                    {/* Experience Bullets */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[9px] text-zinc-400">Description Bullets</label>
+                        <button onClick={() => addExperienceBullet(idx)} className="text-[9px] text-primary-500 hover:underline">
+                          + Add Line
+                        </button>
+                      </div>
+                      {exp.bullets?.map((bullet, bIdx) => (
+                        <div key={bIdx} className="flex items-center gap-1.5">
+                          <input 
+                            value={bullet || ''}
+                            onChange={e => updateExperienceBullet(idx, bIdx, e.target.value)}
+                            placeholder="e.g. Led design scaling for internal microservices..."
+                            className="flex-1 px-2 py-1 bg-zinc-950 border border-zinc-850 rounded text-xs focus:outline-none"
+                          />
+                          <button onClick={() => deleteExperienceBullet(idx, bIdx)} className="text-zinc-600 hover:text-red-500 shrink-0">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-            
-            {pdfUrl ? (
-              <iframe 
-                src={pdfUrl} 
-                className="w-full h-full border-0 bg-zinc-900" 
-                title="Resume PDF Live Render"
+
+              {/* Projects Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-900 pb-1">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-primary-500">Academic / Side Projects</h3>
+                  <button onClick={addProject} className="flex items-center gap-1 text-[10px] text-primary-400 hover:text-primary-300 font-semibold">
+                    <Plus size={12} /> Add Project
+                  </button>
+                </div>
+                {resumeData.projects?.map((proj, idx) => (
+                  <div key={idx} className="bg-zinc-900/30 p-3 border border-zinc-900 rounded-lg space-y-3 relative">
+                    <button onClick={() => deleteProject(idx)} className="absolute top-2 right-2 text-zinc-500 hover:text-red-500">
+                      <Trash2 size={13} />
+                    </button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Project Name</label>
+                        <input 
+                          value={proj.name || ''} 
+                          onChange={e => updateProject(idx, 'name', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Technologies Used</label>
+                        <input 
+                          value={proj.technologies || ''} 
+                          onChange={e => updateProject(idx, 'technologies', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">Start Date</label>
+                        <input 
+                          value={proj.startDate || ''} 
+                          onChange={e => updateProject(idx, 'startDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] text-zinc-400 mb-1">End Date</label>
+                        <input 
+                          value={proj.endDate || ''} 
+                          onChange={e => updateProject(idx, 'endDate', e.target.value)}
+                          className="w-full px-2 py-1 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Project Bullets */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[9px] text-zinc-400">Description Bullets</label>
+                        <button onClick={() => addProjectBullet(idx)} className="text-[9px] text-primary-500 hover:underline">
+                          + Add Line
+                        </button>
+                      </div>
+                      {proj.bullets?.map((bullet, bIdx) => (
+                        <div key={bIdx} className="flex items-center gap-1.5">
+                          <input 
+                            value={bullet || ''}
+                            onChange={e => updateProjectBullet(idx, bIdx, e.target.value)}
+                            placeholder="e.g. Integrated client-side PDF renderer using react-pdf..."
+                            className="flex-1 px-2 py-1 bg-zinc-950 border border-zinc-850 rounded text-xs focus:outline-none"
+                          />
+                          <button onClick={() => deleteProjectBullet(idx, bIdx)} className="text-zinc-600 hover:text-red-500 shrink-0">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Skills Section */}
+              <div className="space-y-3">
+                <h3 className="text-xs font-mono uppercase tracking-widest text-primary-500 border-b border-zinc-900 pb-1">Technical Skills</h3>
+                <div>
+                  <label className="block text-[10px] text-zinc-400 mb-1">Languages (comma-separated)</label>
+                  <input 
+                    value={resumeData.skills?.languages || ''} 
+                    onChange={e => updateSkill('languages', e.target.value)}
+                    placeholder="e.g. Python, JavaScript, Java, C++"
+                    className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-zinc-400 mb-1">Frameworks (comma-separated)</label>
+                  <input 
+                    value={resumeData.skills?.frameworks || ''} 
+                    onChange={e => updateSkill('frameworks', e.target.value)}
+                    placeholder="e.g. React, Node.js, Express, Next.js, FastAPI"
+                    className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-zinc-400 mb-1">Developer Tools (comma-separated)</label>
+                  <input 
+                    value={resumeData.skills?.tools || ''} 
+                    onChange={e => updateSkill('tools', e.target.value)}
+                    placeholder="e.g. Git, Docker, MongoDB, Postman"
+                    className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* LaTeX Code Editor Header */}
+              <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">source.tex</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => insertLatexCmd('bold')} className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-bold font-mono text-zinc-400 hover:text-zinc-200">B</button>
+                  <button onClick={() => insertLatexCmd('italic')} className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] italic font-mono text-zinc-400 hover:text-zinc-200">I</button>
+                  <button onClick={() => insertLatexCmd('section')} className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-mono text-zinc-400 hover:text-zinc-200">Sec</button>
+                  <button onClick={() => insertLatexCmd('item')} className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/60 rounded text-[10px] font-mono text-zinc-400 hover:text-zinc-200">• Item</button>
+                </div>
+              </div>
+              <textarea
+                ref={textareaRef}
+                value={latexSource}
+                onChange={e => setLatexSource(e.target.value)}
+                className="flex-1 w-full p-4 bg-zinc-950 font-mono text-xs text-zinc-300 focus:outline-none resize-none leading-relaxed select-text cursor-text border-0 h-full"
+                placeholder="% Type LaTeX Resume Code Here..."
               />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-zinc-500">
-                <FileText size={40} className="stroke-1 mb-3 text-zinc-700" />
-                <p className="text-xs font-semibold text-zinc-400">Preview is empty</p>
-                <p className="text-[10px] text-zinc-600 max-w-[200px] mt-1">Make sure you have source code written and click Compile.</p>
+              {/* Control Footer for LaTeX Compile */}
+              <div className="p-3 bg-zinc-900/40 border-t border-zinc-850 flex justify-end gap-2">
+                <button 
+                  onClick={() => compileLatexCode()}
+                  disabled={compilingCode || !latexSource}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium rounded transition-all disabled:opacity-40"
+                >
+                  {compilingCode ? <RefreshCw size={12} className="animate-spin text-primary-500" /> : <Play size={12} className="text-emerald-500" />}
+                  Compile
+                </button>
+                <button 
+                  onClick={handleSaveCode}
+                  disabled={saving || compilingCode || !latexSource}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded transition-all"
+                >
+                  {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                  Publish LaTeX
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+
+        {/* Center/Right pane: radial preview & widget sidebar */}
+        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-12 gap-4 max-h-[calc(100vh-14rem)] overflow-hidden">
+          
+          {/* Iframe preview container */}
+          <div className="md:col-span-8 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[400px]">
+            <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
+              <div className="flex items-center gap-2">
+                {activeMode === 'form' && (
+                  <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1 font-medium bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                    <CheckCircle size={10} /> AUTO-RENDER
+                  </span>
+                )}
+                {activeMode === 'code' && codeFallback && (
+                  <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">
+                    <AlertTriangle size={10} /> FALLBACK
+                  </span>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex-1 bg-zinc-900 relative h-full">
+              {activeMode === 'form' ? (
+                <BlobProvider document={<JakesTemplate data={resumeData} />}>
+                  {({ blob, url, loading, error }) => {
+                    if (loading) {
+                      return (
+                        <div className="absolute inset-0 bg-zinc-950/80 flex flex-col items-center justify-center gap-2">
+                          <RefreshCw size={24} className="animate-spin text-primary-500" />
+                          <span className="text-xs text-zinc-400 font-mono">Generating PDF...</span>
+                        </div>
+                      );
+                    }
+                    if (error) {
+                      return (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 text-xs">
+                          <AlertTriangle size={24} className="text-red-500 mb-2" />
+                          Failed to compile PDF.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="w-full h-full flex flex-col">
+                        <iframe 
+                          src={url} 
+                          className="flex-1 w-full border-0 bg-zinc-900" 
+                          title="Structured Resume PDF Preview"
+                        />
+                        {/* Instant Save Bar */}
+                        <div className="p-3 bg-zinc-950/90 border-t border-zinc-850 flex justify-between items-center gap-3">
+                          <span className="text-[10px] text-zinc-500 font-mono">PDF compiled client-side instantly.</span>
+                          <button
+                            onClick={() => handleSaveForm(blob)}
+                            disabled={saving}
+                            className="flex items-center gap-1.5 px-4 py-1 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg shadow-lg shadow-primary-500/10 transition-colors disabled:opacity-55"
+                          >
+                            {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                            Publish & Sync Profile
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </BlobProvider>
+              ) : (
+                <div className="w-full h-full flex flex-col">
+                  {compilingCode && (
+                    <div className="absolute inset-0 bg-zinc-950/80 flex flex-col items-center justify-center gap-2">
+                      <RefreshCw size={24} className="animate-spin text-primary-500" />
+                      <span className="text-xs text-zinc-400 font-mono">Compiling LaTeX...</span>
+                    </div>
+                  )}
+                  {codePdfUrl ? (
+                    <iframe 
+                      src={codePdfUrl} 
+                      className="flex-1 w-full border-0 bg-zinc-900" 
+                      title="LaTeX Code PDF Preview"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-500 text-xs text-center p-4">
+                      <FileText size={32} className="text-zinc-700 mb-2" />
+                      No LaTeX PDF. Click Compile above.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right widget pane */}
+          <div className="md:col-span-4 space-y-4">
+            <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
+            
+            {/* Template Card Info */}
+            <div className="bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2 text-xs text-zinc-400">
+              <span className="font-semibold text-zinc-300 block">Jake's Resume Design</span>
+              <p className="leading-relaxed text-[11px]">
+                This layout follows standard, high-readability rules optimized for applicant tracking scanners. 
+                Using clean dividers and the classic <strong className="text-zinc-200">Times-Roman</strong> serif font ensures premium presentation with zero styling clutter.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
-      {/* ── Help Sidebar Overlay ── */}
+      {/* Help Modal */}
       {showHelp && (
         <div className="fixed inset-y-0 right-0 z-50 w-80 bg-zinc-950 border-l border-zinc-800 shadow-2xl p-6 overflow-y-auto">
           <div className="flex justify-between items-center pb-4 border-b border-zinc-800 mb-4">
             <h2 className="font-semibold text-sm text-zinc-200">LaTeX Cheatsheet</h2>
             <button onClick={() => setShowHelp(false)} className="text-zinc-500 hover:text-zinc-300 text-xs">Close</button>
           </div>
-          
           <div className="space-y-4 text-xs text-zinc-400">
             <div>
               <p className="font-semibold text-zinc-300 uppercase tracking-widest text-[9px] mb-1">Commands</p>
               <ul className="space-y-2 font-mono text-[10px]">
-                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\section{Name}"}</span> - Adds a divider heading</li>
-                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\textbf{Text}"}</span> - Bold text</li>
-                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\textit{Text}"}</span> - Italicize text</li>
-                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\hfill"}</span> - Aligns following text to the right</li>
-                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\\\"}</span> - Inserts a line break</li>
+                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\section{Name}"}</span> - Divider heading</li>
+                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\textbf{Text}"}</span> - Bold</li>
+                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\textit{Text}"}</span> - Italic</li>
+                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\hfill"}</span> - Right-align</li>
+                <li className="bg-zinc-900 p-1.5 rounded"><span className="text-primary-400">{"\\\\"}</span> - Line break</li>
               </ul>
             </div>
-            
             <div>
-              <p className="font-semibold text-zinc-300 uppercase tracking-widest text-[9px] mb-1">Bullet Point Lists</p>
+              <p className="font-semibold text-zinc-300 uppercase tracking-widest text-[9px] mb-1">List</p>
               <pre className="bg-zinc-900 p-2 rounded font-mono text-[10px] overflow-x-auto">
 {`\\begin{itemize}
   \\item First bullet
@@ -516,16 +802,10 @@ Languages \\& Frameworks: ${skillsList}
 \\end{itemize}`}
               </pre>
             </div>
-
-            <div className="bg-primary-500/5 border border-primary-500/20 rounded-lg p-3 text-[10px]">
-              <span className="font-bold text-primary-400 flex items-center gap-1.5 mb-1">
-                <CheckCircle size={12} /> Syncing with Profile
-              </span>
-              Clicking <strong className="text-zinc-200">Publish to Profile</strong> compiles the final PDF, saves the LaTeX source, parses your text details, and updates your resume so ATS matching models can run instantly!
-            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };
