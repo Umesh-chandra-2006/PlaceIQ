@@ -10,6 +10,7 @@ import Tracker from '../components/student/Tracker';
 import Onboarding from '../components/student/Onboarding';
 import Profile from '../components/student/Profile';
 import StudentAnnouncements from '../components/student/StudentAnnouncements';
+import ResumeBuilder from '../components/student/ResumeBuilder';
 import { Loader2 } from 'lucide-react';
 import Sidebar from '../components/shared/Sidebar';
 import OnboardingTour from '../components/shared/OnboardingTour';
@@ -49,6 +50,7 @@ const StudentApp = () => {
           <Route path="/tracker" element={<Tracker />} />
           <Route path="/onboard" element={<Onboarding />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/resume" element={<ResumeBuilder />} />
           <Route path="/announcements" element={<StudentAnnouncements />} />
           <Route path="*" element={<Navigate to="/student" replace />} />
         </Routes>

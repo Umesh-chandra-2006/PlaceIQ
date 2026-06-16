@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, Briefcase, Users, Megaphone, BarChart3, 
   LogOut, CheckCircle, User, Sliders, Shield, Menu, X, Building, Bell,
-  PanelLeftClose, PanelLeftOpen, HelpCircle, Sun, Moon
+  PanelLeftClose, PanelLeftOpen, HelpCircle, Sun, Moon, FileText
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -100,6 +100,7 @@ const Sidebar = ({ variant }) => {
       { name: 'Job Feed', path: '/student', icon: Briefcase, exact: true },
       { name: 'Application Tracker', path: '/student/tracker', icon: CheckCircle },
       { name: 'Announcements', path: '/student/announcements', icon: Megaphone },
+      { name: 'Resume Builder', path: '/student/resume', icon: FileText },
       { name: 'My Profile', path: '/student/profile', icon: User },
     ];
   } else if (role === 'coordinator') {

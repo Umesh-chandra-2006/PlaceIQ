@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema({
   skills: [String],
   resumeText: String,
   resumeUrl: String,
+  latexResumeSource: { type: String, default: "" },
   resumeUpdatedAt: Date,
   isOnboarded: { type: Boolean, default: false },
   isSetup: { type: Boolean, default: false },
