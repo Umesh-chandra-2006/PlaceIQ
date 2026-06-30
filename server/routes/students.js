@@ -9,6 +9,15 @@ const { Readable } = require("stream");
 const User = require("../models/User");
 const { protect } = require("../middleware/auth");
 const { enforceOnboarding } = require("../middleware/onboarded");
+const rateLimit = require("express-rate-limit");
+
+const resumeRewriteLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 3,
+  message: { error: "Too many optimization requests. Please wait 5 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const { uploadFile } = require("../services/storageService");
 
@@ -468,45 +477,156 @@ router.post("/resume/save", protect, async (req, res) => {
 function convertResumeDataToText(data) {
   if (!data) return "";
   const parts = [];
-  if (data.personal) {
+
+  if (data.basics) {
+    parts.push(data.basics.name || "");
+    parts.push(data.basics.email || "");
+    parts.push(data.basics.phone || "");
+    parts.push(data.basics.summary || "");
+    if (data.basics.location) {
+      parts.push(data.basics.location.city || "");
+    }
+  } else if (data.personal) {
     parts.push(data.personal.name || "");
     parts.push(data.personal.email || "");
     parts.push(data.personal.phone || "");
     parts.push(data.personal.location || "");
   }
+
   if (Array.isArray(data.education)) {
     data.education.forEach(e => {
       parts.push(e.institution || "");
-      parts.push(e.degree || "");
-      parts.push(e.field || "");
-      parts.push(e.cgpa || "");
+      parts.push(e.degree || e.studyType || "");
+      parts.push(e.field || e.area || "");
+      parts.push(e.cgpa || e.score || "");
     });
   }
-  if (Array.isArray(data.experience)) {
-    data.experience.forEach(exp => {
-      parts.push(exp.company || "");
-      parts.push(exp.role || "");
-      if (Array.isArray(exp.bullets)) {
-        parts.push(...exp.bullets);
+
+  const workList = data.work || data.experience;
+  if (Array.isArray(workList)) {
+    workList.forEach(exp => {
+      parts.push(exp.company || exp.name || "");
+      parts.push(exp.role || exp.position || "");
+      const bullets = exp.bullets || exp.highlights;
+      if (Array.isArray(bullets)) {
+        parts.push(...bullets);
       }
     });
   }
+
   if (Array.isArray(data.projects)) {
     data.projects.forEach(p => {
       parts.push(p.name || "");
-      parts.push(p.technologies || "");
-      if (Array.isArray(p.bullets)) {
-        parts.push(...p.bullets);
+      parts.push(p.description || "");
+      const bullets = p.bullets || p.highlights;
+      if (Array.isArray(bullets)) {
+        parts.push(...bullets);
+      }
+      const keywords = p.keywords || (p.technologies ? p.technologies.split(",") : []);
+      if (Array.isArray(keywords)) {
+        keywords.forEach(k => parts.push(k.trim()));
       }
     });
   }
-  if (data.skills) {
+
+  if (Array.isArray(data.skills)) {
+    data.skills.forEach(s => {
+      parts.push(s.name || "");
+      if (Array.isArray(s.keywords)) {
+        parts.push(...s.keywords);
+      }
+    });
+  } else if (data.skills) {
     parts.push(data.skills.languages || "");
     parts.push(data.skills.frameworks || "");
     parts.push(data.skills.tools || "");
   }
+
   return parts.filter(Boolean).join("\n");
 }
+
+const isStandardJsonResume = (data) => {
+  return data && data.basics && data.work && Array.isArray(data.skills);
+};
+
+const convertToStandardJsonResume = (data) => {
+  if (!data) return null;
+  if (isStandardJsonResume(data)) return data;
+
+  return {
+    basics: {
+      name: data.personal?.name || "",
+      email: data.personal?.email || "",
+      phone: data.personal?.phone || "",
+      url: "",
+      summary: "Motivated student eager to contribute to software development and engineering teams.",
+      location: {
+        address: "",
+        postalCode: "",
+        city: data.personal?.location || "India",
+        countryCode: "IN",
+        region: ""
+      },
+      profiles: [
+        {
+          network: "GitHub",
+          username: "",
+          url: data.personal?.github || "https://github.com/"
+        },
+        {
+          network: "LinkedIn",
+          username: "",
+          url: data.personal?.linkedin || "https://linkedin.com/in/"
+        }
+      ]
+    },
+    education: (data.education || []).map(e => ({
+      institution: e.institution || "",
+      url: "",
+      area: e.field || "",
+      studyType: e.degree || "",
+      startDate: e.startDate || "",
+      endDate: e.endDate || "",
+      score: e.cgpa || "",
+      courses: []
+    })),
+    work: (data.experience || []).map(exp => ({
+      name: exp.company || "",
+      position: exp.role || "",
+      url: "",
+      startDate: exp.startDate || "",
+      endDate: exp.endDate || "",
+      summary: "",
+      highlights: exp.bullets || []
+    })),
+    projects: (data.projects || []).map(p => ({
+      name: p.name || "",
+      description: "",
+      highlights: p.bullets || [],
+      keywords: p.technologies ? p.technologies.split(",").map(s => s.trim()) : [],
+      startDate: p.startDate || "",
+      endDate: p.endDate || "",
+      url: ""
+    })),
+    skills: [
+      {
+        name: "Languages",
+        level: "Expert",
+        keywords: data.skills?.languages ? data.skills.languages.split(",").map(s => s.trim()) : []
+      },
+      {
+        name: "Frameworks",
+        level: "Intermediate",
+        keywords: data.skills?.frameworks ? data.skills.frameworks.split(",").map(s => s.trim()) : []
+      },
+      {
+        name: "Tools",
+        level: "Intermediate",
+        keywords: data.skills?.tools ? data.skills.tools.split(",").map(s => s.trim()) : []
+      }
+    ]
+  };
+};
 
 function getDefaultResumeData(user) {
   const name = user.name || "Student Name";
@@ -516,50 +636,75 @@ function getDefaultResumeData(user) {
   const cgpa = user.cgpa ? user.cgpa.toString() : "8.5";
   const tenth = user.tenthPercent ? user.tenthPercent.toString() : "90";
   const twelfth = user.twelfthPercent ? user.twelfthPercent.toString() : "88";
-  const skillsList = user.skills && user.skills.length > 0 ? user.skills.join(", ") : "React, Node.js, Express, MongoDB, Python, Git";
 
   return {
-    personal: {
+    basics: {
       name,
       email,
       phone,
-      github: "https://github.com/",
-      linkedin: "https://linkedin.com/in/",
-      location: "India"
+      url: "",
+      summary: "Motivated student eager to contribute to software development and engineering teams.",
+      location: {
+        address: "",
+        postalCode: "",
+        city: "India",
+        countryCode: "IN",
+        region: ""
+      },
+      profiles: [
+        {
+          network: "GitHub",
+          username: "",
+          url: "https://github.com/"
+        },
+        {
+          network: "LinkedIn",
+          username: "",
+          url: "https://linkedin.com/in/"
+        }
+      ]
     },
     education: [
       {
         institution: "College Education",
-        degree: "Bachelor of Technology",
-        field: dept,
-        cgpa,
+        url: "",
+        area: dept,
+        studyType: "Bachelor of Technology",
         startDate: "Aug 2022",
-        endDate: "May 2026"
+        endDate: "May 2026",
+        score: cgpa,
+        courses: []
       },
       {
         institution: "High School",
-        degree: "Class 12th Board",
-        field: "Science",
-        cgpa: twelfth + "%",
+        url: "",
+        area: "Science",
+        studyType: "Class 12th Board",
         startDate: "Apr 2020",
-        endDate: "Mar 2022"
+        endDate: "Mar 2022",
+        score: twelfth + "%",
+        courses: []
       },
       {
         institution: "Secondary School",
-        degree: "Class 10th Board",
-        field: "General Education",
-        cgpa: tenth + "%",
+        url: "",
+        area: "General Education",
+        studyType: "Class 10th Board",
         startDate: "Apr 2018",
-        endDate: "Mar 2020"
+        endDate: "Mar 2020",
+        score: tenth + "%",
+        courses: []
       }
     ],
-    experience: [
+    work: [
       {
-        company: "PlaceIQ Corp",
-        role: "Software Developer Intern",
+        name: "PlaceIQ Corp",
+        position: "Software Developer Intern",
+        url: "",
         startDate: "May 2025",
         endDate: "July 2025",
-        bullets: [
+        summary: "Worked on building placement dashboard workflows.",
+        highlights: [
           "Optimized backend queries and database schemas for faster lookup response times.",
           "Designed multi-tenant authentication and user onboarding layout dashboards."
         ]
@@ -568,20 +713,34 @@ function getDefaultResumeData(user) {
     projects: [
       {
         name: "PlaceIQ Placement Portal",
-        technologies: "React, Node.js, Express, MongoDB, TailwindCSS",
-        startDate: "Jan 2026",
-        endDate: "Present",
-        bullets: [
+        description: "Placement and application tracking portal for colleges.",
+        highlights: [
           "Built a high-fidelity client-side CV builder using React-PDF with real-time preview layouts.",
           "Designed dynamic ATS keyword matching and review scoring widgets."
-        ]
+        ],
+        keywords: ["React", "Node.js", "Express", "MongoDB", "TailwindCSS"],
+        startDate: "Jan 2026",
+        endDate: "Present",
+        url: ""
       }
     ],
-    skills: {
-      languages: "JavaScript, Python, C++, SQL",
-      frameworks: "React, Express, Node.js, TailwindCSS",
-      tools: "Git, Docker, Postman, MongoDB"
-    }
+    skills: [
+      {
+        name: "Languages",
+        level: "Expert",
+        keywords: ["JavaScript", "Python", "C++", "SQL"]
+      },
+      {
+        name: "Frameworks",
+        level: "Intermediate",
+        keywords: ["React", "Express", "Node.js", "TailwindCSS"]
+      },
+      {
+        name: "Tools",
+        level: "Intermediate",
+        keywords: ["Git", "Docker", "Postman", "MongoDB"]
+      }
+    ]
   };
 }
 
@@ -596,9 +755,34 @@ router.get("/resume/data", protect, async (req, res) => {
     let data = user.resumeData;
     if (!data) {
       data = getDefaultResumeData(user);
+      user.resumeData = data;
+      await user.save();
+    } else if (!isStandardJsonResume(data)) {
+      data = convertToStandardJsonResume(data);
+      user.resumeData = data;
+      await user.save();
     }
 
-    res.json({ resumeData: data });
+    const College = require("../models/College");
+    const college = await College.findById(user.collegeId);
+    const quotaLimit = college?.aiOptimizationQuota ?? 25;
+
+    const now = new Date();
+    if (!user.aiOptimizationResetDate) {
+      user.aiOptimizationResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      await user.save();
+    } else if (now > user.aiOptimizationResetDate) {
+      user.aiOptimizationsUsed = 0;
+      user.aiOptimizationResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      await user.save();
+    }
+
+    res.json({
+      resumeData: data,
+      aiOptimizationsUsed: user.aiOptimizationsUsed || 0,
+      aiOptimizationQuota: quotaLimit,
+      aiOptimizationResetDate: user.aiOptimizationResetDate
+    });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch resume data: " + error.message });
   }
@@ -658,6 +842,64 @@ router.post("/resume/ats-score", protect, async (req, res) => {
   } catch (error) {
     console.error("ATS score calc error:", error);
     res.status(500).json({ error: "Failed to calculate ATS score: " + error.message });
+  }
+});
+
+// POST /api/students/resume/ai-optimize
+router.post("/resume/ai-optimize", protect, enforceOnboarding, resumeRewriteLimiter, async (req, res) => {
+  try {
+    const student = await User.findById(req.user.id);
+    if (!student || student.role !== "student") {
+      return res.status(403).json({ error: "Only students can optimize their resume." });
+    }
+
+    const { jobDescription } = req.body;
+    let resumeData = req.body.resumeData || student.resumeData;
+    if (!resumeData) {
+      resumeData = getDefaultResumeData(student);
+    } else if (!isStandardJsonResume(resumeData)) {
+      resumeData = convertToStandardJsonResume(resumeData);
+    }
+
+    if (!jobDescription) {
+      return res.status(400).json({ error: "Job description is required for optimization." });
+    }
+
+    // Check quota
+    const College = require("../models/College");
+    const college = await College.findById(student.collegeId);
+    const quotaLimit = college?.aiOptimizationQuota ?? 25;
+
+    const now = new Date();
+    if (!student.aiOptimizationResetDate) {
+      student.aiOptimizationResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    } else if (now > student.aiOptimizationResetDate) {
+      student.aiOptimizationsUsed = 0;
+      student.aiOptimizationResetDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+
+    if (student.aiOptimizationsUsed >= quotaLimit) {
+      return res.status(403).json({
+        error: `Resume optimizer quota exceeded (${quotaLimit}/${quotaLimit}). Resets next month.`
+      });
+    }
+
+    const { performAiResumeRewrite } = require("../services/ats");
+    const optimizedResumeData = await performAiResumeRewrite(resumeData, jobDescription);
+
+    // Burn Quota
+    student.aiOptimizationsUsed += 1;
+    await student.save();
+
+    res.json({
+      success: true,
+      resumeData: optimizedResumeData,
+      quotaUsed: student.aiOptimizationsUsed,
+      quotaLimit
+    });
+  } catch (error) {
+    console.error("Resume AI Optimize Route Error:", error);
+    res.status(500).json({ error: error.message || "Failed to optimize resume with AI" });
   }
 });
 

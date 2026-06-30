@@ -23,8 +23,16 @@ const SYNONYMS = {
   "continuous integration": ["ci/cd", "ci-cd"]
 };
 
+const CONCEPT_GROUPS = {
+  "frontend": ["react", "vue", "angular", "html", "css", "tailwindcss", "bootstrap", "javascript", "typescript", "webpack", "sass", "frontend"],
+  "backend": ["node", "express", "django", "flask", "spring", "fastapi", "golang", "java", "ruby", "php", "rest", "api", "backend"],
+  "database": ["mongodb", "postgresql", "mysql", "sql", "redis", "firebase", "sqlite", "oracle", "cassandra", "database", "db"],
+  "devops": ["docker", "kubernetes", "aws", "gcp", "azure", "jenkins", "ci/cd", "terraform", "ansible", "devops"],
+  "machine learning": ["python", "pytorch", "tensorflow", "scikit-learn", "numpy", "pandas", "nlp", "ai", "deep learning", "ml", "machine learning"]
+};
+
 /**
- * Checks if a keyword matches the resume, taking synonyms into account.
+ * Checks if a keyword matches the resume, taking synonyms and concept groups into account.
  */
 const checkKeywordMatch = (resumeLower, keyword) => {
   const kw = keyword.toLowerCase();
@@ -36,6 +44,16 @@ const checkKeywordMatch = (resumeLower, keyword) => {
       if (resumeLower.includes(syn)) return true;
     }
   }
+
+  // Check conceptual matches (e.g. if Job Description asks for "frontend" and resume has "react")
+  for (const [concept, keywords] of Object.entries(CONCEPT_GROUPS)) {
+    if (kw.includes(concept) || concept.includes(kw)) {
+      for (const k of keywords) {
+        if (resumeLower.includes(k)) return true;
+      }
+    }
+  }
+
   return false;
 };
 
@@ -160,6 +178,52 @@ ${resumeText}
   }
 };
 
+const calculateCosineSimilarity = (textA, textB) => {
+  if (!textA || !textB) return 0;
+  
+  const tokenize = (text) => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, "")
+      .split(/\s+/)
+      .filter(w => w.length > 2);
+  };
+
+  const wordsA = tokenize(textA);
+  const wordsB = tokenize(textB);
+
+  if (wordsA.length === 0 || wordsB.length === 0) return 0;
+
+  const freqA = {};
+  const freqB = {};
+  const allWords = new Set();
+
+  wordsA.forEach(w => {
+    freqA[w] = (freqA[w] || 0) + 1;
+    allWords.add(w);
+  });
+
+  wordsB.forEach(w => {
+    freqB[w] = (freqB[w] || 0) + 1;
+    allWords.add(w);
+  });
+
+  let dotProduct = 0;
+  let magnitudeA = 0;
+  let magnitudeB = 0;
+
+  allWords.forEach(w => {
+    const valA = freqA[w] || 0;
+    const valB = freqB[w] || 0;
+    dotProduct += valA * valB;
+    magnitudeA += valA * valA;
+    magnitudeB += valB * valB;
+  });
+
+  if (magnitudeA === 0 || magnitudeB === 0) return 0;
+  return dotProduct / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
+};
+
 exports.calculateAtsDashboard = (resumeText, jobDescription) => {
   const resumeLower = resumeText.toLowerCase();
   
@@ -198,7 +262,10 @@ exports.calculateAtsDashboard = (resumeText, jobDescription) => {
       });
       matchedKeywords = matched.slice(0, 10);
       missingKeywords = missing.slice(0, 10);
-      keywordsScore = Math.round((matched.length / filteredKeywords.length) * 100);
+      
+      const directMatchPercent = (matched.length / filteredKeywords.length) * 100;
+      const cosineSim = calculateCosineSimilarity(resumeText, jobDescription);
+      keywordsScore = Math.round(directMatchPercent * 0.6 + cosineSim * 100 * 0.4);
     }
   } else {
     // Default general keywords checks
@@ -340,4 +407,131 @@ exports.calculateAtsDashboard = (resumeText, jobDescription) => {
     missingKeywords,
     healthInsights
   };
+};
+
+exports.performAiResumeRewrite = async (resumeData, jobDescription) => {
+  const model = process.env.RESUME_REWRITE_MODEL || "anthropic/claude-3.5-sonnet";
+  
+  const prompt = `
+You are an expert resume optimizer and career coach.
+Your task is to analyze the candidate's structured resume JSON (complying with the JSON Resume Schema) and optimize it to align with the provided Job Description.
+
+Guidelines:
+1. Enhance the phrasing, action verbs, and technical keywords.
+2. Integrate relevant keywords from the job description naturally, without fabricating fake job history or credentials.
+3. Keep the content concise, recruiter-friendly, and formatted to standard resume conventions.
+4. Ensure the output is a strict JSON object matching the exact input structure. Do not change the JSON keys.
+5. Do NOT output any markdown code blocks, backticks (e.g. \`\`\`json), or explanations. Return ONLY the raw valid JSON string.
+
+INPUT RESUME JSON:
+${JSON.stringify(resumeData, null, 2)}
+
+TARGET JOB DESCRIPTION:
+${jobDescription}
+
+OUTPUT JSON FORMAT REQUIRED (strict structural match):
+{
+  "basics": {
+    "name": "...",
+    "email": "...",
+    "phone": "...",
+    "url": "...",
+    "summary": "...",
+    "location": {
+      "address": "...",
+      "postalCode": "...",
+      "city": "...",
+      "countryCode": "...",
+      "region": "..."
+    },
+    "profiles": [
+      {
+        "network": "GitHub",
+        "username": "...",
+        "url": "..."
+      },
+      {
+        "network": "LinkedIn",
+        "username": "...",
+        "url": "..."
+      }
+    ]
+  },
+  "education": [
+    {
+      "institution": "...",
+      "url": "...",
+      "area": "...",
+      "studyType": "...",
+      "startDate": "...",
+      "endDate": "...",
+      "score": "...",
+      "courses": []
+    }
+  ],
+  "work": [
+    {
+      "name": "...",
+      "position": "...",
+      "url": "...",
+      "startDate": "...",
+      "endDate": "...",
+      "summary": "...",
+      "highlights": ["highlight 1", "highlight 2"]
+    }
+  ],
+  "projects": [
+    {
+      "name": "...",
+      "description": "...",
+      "highlights": ["highlight 1", "highlight 2"],
+      "keywords": ["React", "Node.js"],
+      "startDate": "...",
+      "endDate": "...",
+      "url": "..."
+    }
+  ],
+  "skills": [
+    {
+      "name": "Languages",
+      "level": "...",
+      "keywords": ["JavaScript", "Python"]
+    },
+    {
+      "name": "Frameworks",
+      "level": "...",
+      "keywords": ["React", "Node.js"]
+    },
+    {
+      "name": "Tools",
+      "level": "...",
+      "keywords": ["Git", "Docker"]
+    }
+  ]
+}
+`;
+
+  try {
+    const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+      model: model,
+      messages: [
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
+    }, {
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+
+    const content = response.data.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Invalid JSON response from AI");
+    
+    return JSON.parse(jsonMatch[0]);
+  } catch (error) {
+    console.error("OpenRouter Claude Resume Rewrite failed:", error.response?.data || error.message);
+    throw new Error("Failed to optimize resume with AI: " + (error.response?.data?.error?.message || error.message));
+  }
 };

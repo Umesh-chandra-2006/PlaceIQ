@@ -8,9 +8,93 @@ import {
   FileText, Play, Save, RefreshCw, AlertTriangle, 
   Plus, Trash2, 
   GraduationCap, Code, FileSignature, Sparkles,
-  ZoomIn, ZoomOut, Maximize, Download
+  ZoomIn, ZoomOut, Maximize, Download,
+  Upload, X, Check, Info
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const isStandardJsonResume = (data) => {
+  return data && data.basics && data.work && Array.isArray(data.skills);
+};
+
+const convertToStandardJsonResume = (data) => {
+  if (!data) return {};
+  if (isStandardJsonResume(data)) return data;
+
+  return {
+    basics: {
+      name: data.personal?.name || "",
+      email: data.personal?.email || "",
+      phone: data.personal?.phone || "",
+      url: "",
+      summary: "Motivated student eager to contribute to software development and engineering teams.",
+      location: {
+        address: "",
+        postalCode: "",
+        city: data.personal?.location || "India",
+        countryCode: "IN",
+        region: ""
+      },
+      profiles: [
+        {
+          network: "GitHub",
+          username: "",
+          url: data.personal?.github || ""
+        },
+        {
+          network: "LinkedIn",
+          username: "",
+          url: data.personal?.linkedin || ""
+        }
+      ]
+    },
+    education: (data.education || []).map(e => ({
+      institution: e.institution || "",
+      url: "",
+      area: e.field || "",
+      studyType: e.degree || "",
+      startDate: e.startDate || "",
+      endDate: e.endDate || "",
+      score: e.cgpa || "",
+      courses: []
+    })),
+    work: (data.experience || []).map(exp => ({
+      name: exp.company || "",
+      position: exp.role || "",
+      url: "",
+      startDate: exp.startDate || "",
+      endDate: exp.endDate || "",
+      summary: "",
+      highlights: exp.bullets || []
+    })),
+    projects: (data.projects || []).map(p => ({
+      name: p.name || "",
+      description: "",
+      highlights: p.bullets || [],
+      keywords: p.technologies ? p.technologies.split(",").map(s => s.trim()) : [],
+      startDate: p.startDate || "",
+      endDate: p.endDate || "",
+      url: ""
+    })),
+    skills: [
+      {
+        name: "Languages",
+        level: "Expert",
+        keywords: data.skills?.languages ? data.skills.languages.split(",").map(s => s.trim()) : []
+      },
+      {
+        name: "Frameworks",
+        level: "Intermediate",
+        keywords: data.skills?.frameworks ? data.skills.frameworks.split(",").map(s => s.trim()) : []
+      },
+      {
+        name: "Tools",
+        level: "Intermediate",
+        keywords: data.skills?.tools ? data.skills.tools.split(",").map(s => s.trim()) : []
+      }
+    ]
+  };
+};
 
 const ResumeBuilder = () => {
   const [activeMode, setActiveMode] = useState('form'); // 'form' or 'code'
@@ -33,8 +117,18 @@ const ResumeBuilder = () => {
   const [lastSavedTime, setLastSavedTime] = useState(null);
   const [saveIndicatorText, setSaveIndicatorText] = useState('All changes saved');
 
+  // AI Optimizer States
+  const [quotaUsed, setQuotaUsed] = useState(0);
+  const [quotaLimit, setQuotaLimit] = useState(25);
+  const [resetDate, setResetDate] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizedDraft, setOptimizedDraft] = useState(null);
+  const [showDiffModal, setShowDiffModal] = useState(false);
+
   const textareaRef = useRef(null);
   const autoSaveTimerRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Fetch initial data
   useEffect(() => {
@@ -42,6 +136,11 @@ const ResumeBuilder = () => {
       try {
         const { data: resData } = await axios.get('/students/resume/data');
         setResumeData(resData.resumeData);
+        if (resData.aiOptimizationsUsed !== undefined) {
+          setQuotaUsed(resData.aiOptimizationsUsed);
+          setQuotaLimit(resData.aiOptimizationQuota);
+          setResetDate(resData.aiOptimizationResetDate);
+        }
 
         const { data: sourceData } = await axios.get('/students/resume/source');
         setLatexSource(sourceData.latexSource);
@@ -132,113 +231,258 @@ const ResumeBuilder = () => {
 
   // Helpers for structural updates
   const updatePersonal = (field, val) => {
-    setResumeData(prev => ({
-      ...prev,
-      personal: { ...prev.personal, [field]: val }
-    }));
+    setResumeData(prev => {
+      const basics = prev.basics ? { ...prev.basics } : {};
+      if (field === 'location') {
+        basics.location = { ...basics.location, city: val };
+      } else if (field === 'github') {
+        const profiles = [...(basics.profiles || [])];
+        let gh = profiles.find(p => p.network?.toLowerCase() === 'github');
+        if (gh) {
+          gh.url = val;
+        } else {
+          profiles.push({ network: 'GitHub', username: '', url: val });
+        }
+        basics.profiles = profiles;
+      } else if (field === 'linkedin') {
+        const profiles = [...(basics.profiles || [])];
+        let li = profiles.find(p => p.network?.toLowerCase() === 'linkedin');
+        if (li) {
+          li.url = val;
+        } else {
+          profiles.push({ network: 'LinkedIn', username: '', url: val });
+        }
+        basics.profiles = profiles;
+      } else {
+        basics[field] = val;
+      }
+      return { ...prev, basics };
+    });
   };
 
   const updateEducation = (index, field, val) => {
-    const updated = [...resumeData.education];
-    updated[index] = { ...updated[index], [field]: val };
-    setResumeData(prev => ({ ...prev, education: updated }));
+    setResumeData(prev => {
+      const updated = [...(prev.education || [])];
+      const item = { ...updated[index] };
+      if (field === 'field') item.area = val;
+      else if (field === 'degree') item.studyType = val;
+      else if (field === 'cgpa') item.score = val;
+      else item[field] = val;
+      updated[index] = item;
+      return { ...prev, education: updated };
+    });
   };
 
   const addEducation = () => {
-    const empty = { institution: '', degree: '', field: '', cgpa: '', startDate: '', endDate: '' };
-    setResumeData(prev => ({ ...prev, education: [...prev.education, empty] }));
+    const empty = { institution: '', studyType: '', area: '', score: '', startDate: '', endDate: '', courses: [] };
+    setResumeData(prev => ({ ...prev, education: [...(prev.education || []), empty] }));
   };
 
   const deleteEducation = (index) => {
-    const updated = resumeData.education.filter((_, idx) => idx !== index);
-    setResumeData(prev => ({ ...prev, education: updated }));
+    setResumeData(prev => {
+      const updated = (prev.education || []).filter((_, idx) => idx !== index);
+      return { ...prev, education: updated };
+    });
   };
 
   const updateExperience = (index, field, val) => {
-    const updated = [...resumeData.experience];
-    updated[index] = { ...updated[index], [field]: val };
-    setResumeData(prev => ({ ...prev, experience: updated }));
+    setResumeData(prev => {
+      const updated = [...(prev.work || prev.experience || [])];
+      const item = { ...updated[index] };
+      if (field === 'company') item.name = val;
+      else if (field === 'role') item.position = val;
+      else item[field] = val;
+      updated[index] = item;
+      return { ...prev, work: updated };
+    });
   };
 
   const updateExperienceBullet = (expIndex, bulletIndex, val) => {
-    const updatedExp = [...resumeData.experience];
-    const updatedBullets = [...updatedExp[expIndex].bullets];
-    updatedBullets[bulletIndex] = val;
-    updatedExp[expIndex] = { ...updatedExp[expIndex], bullets: updatedBullets };
-    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+    setResumeData(prev => {
+      const updatedWork = [...(prev.work || prev.experience || [])];
+      const item = { ...updatedWork[expIndex] };
+      const updatedHighlights = [...(item.highlights || item.bullets || [])];
+      updatedHighlights[bulletIndex] = val;
+      item.highlights = updatedHighlights;
+      item.bullets = updatedHighlights;
+      updatedWork[expIndex] = item;
+      return { ...prev, work: updatedWork };
+    });
   };
 
   const addExperienceBullet = (expIndex) => {
-    const updatedExp = [...resumeData.experience];
-    updatedExp[expIndex] = { 
-      ...updatedExp[expIndex], 
-      bullets: [...(updatedExp[expIndex].bullets || []), ''] 
-    };
-    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+    setResumeData(prev => {
+      const updatedWork = [...(prev.work || prev.experience || [])];
+      const item = { ...updatedWork[expIndex] };
+      const highlights = item.highlights || item.bullets || [];
+      item.highlights = [...highlights, ''];
+      item.bullets = item.highlights;
+      updatedWork[expIndex] = item;
+      return { ...prev, work: updatedWork };
+    });
   };
 
   const deleteExperienceBullet = (expIndex, bulletIndex) => {
-    const updatedExp = [...resumeData.experience];
-    const updatedBullets = updatedExp[expIndex].bullets.filter((_, idx) => idx !== bulletIndex);
-    updatedExp[expIndex] = { ...updatedExp[expIndex], bullets: updatedBullets };
-    setResumeData(prev => ({ ...prev, experience: updatedExp }));
+    setResumeData(prev => {
+      const updatedWork = [...(prev.work || prev.experience || [])];
+      const item = { ...updatedWork[expIndex] };
+      const highlights = (item.highlights || item.bullets || []).filter((_, idx) => idx !== bulletIndex);
+      item.highlights = highlights;
+      item.bullets = highlights;
+      updatedWork[expIndex] = item;
+      return { ...prev, work: updatedWork };
+    });
   };
 
   const addExperience = () => {
-    const empty = { company: '', role: '', startDate: '', endDate: '', bullets: [''] };
-    setResumeData(prev => ({ ...prev, experience: [...prev.experience, empty] }));
+    const empty = { name: '', position: '', startDate: '', endDate: '', summary: '', highlights: [''] };
+    setResumeData(prev => ({ ...prev, work: [...(prev.work || prev.experience || []), empty] }));
   };
 
   const deleteExperience = (index) => {
-    const updated = resumeData.experience.filter((_, idx) => idx !== index);
-    setResumeData(prev => ({ ...prev, experience: updated }));
+    setResumeData(prev => {
+      const updated = (prev.work || prev.experience || []).filter((_, idx) => idx !== index);
+      return { ...prev, work: updated };
+    });
   };
 
   const updateProject = (index, field, val) => {
-    const updated = [...resumeData.projects];
-    updated[index] = { ...updated[index], [field]: val };
-    setResumeData(prev => ({ ...prev, projects: updated }));
+    setResumeData(prev => {
+      const updated = [...(prev.projects || [])];
+      const item = { ...updated[index] };
+      if (field === 'technologies') {
+        item.keywords = val.split(',').map(s => s.trim());
+      } else {
+        item[field] = val;
+      }
+      updated[index] = item;
+      return { ...prev, projects: updated };
+    });
   };
 
   const updateProjectBullet = (projIndex, bulletIndex, val) => {
-    const updatedProj = [...resumeData.projects];
-    const updatedBullets = [...updatedProj[projIndex].bullets];
-    updatedBullets[bulletIndex] = val;
-    updatedProj[projIndex] = { ...updatedProj[projIndex], bullets: updatedBullets };
-    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+    setResumeData(prev => {
+      const updatedProj = [...(prev.projects || [])];
+      const item = { ...updatedProj[projIndex] };
+      const updatedHighlights = [...(item.highlights || item.bullets || [])];
+      updatedHighlights[bulletIndex] = val;
+      item.highlights = updatedHighlights;
+      item.bullets = updatedHighlights;
+      updatedProj[projIndex] = item;
+      return { ...prev, projects: updatedProj };
+    });
   };
 
   const addProjectBullet = (projIndex) => {
-    const updatedProj = [...resumeData.projects];
-    updatedProj[projIndex] = { 
-      ...updatedProj[projIndex], 
-      bullets: [...(updatedProj[projIndex].bullets || []), ''] 
-    };
-    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+    setResumeData(prev => {
+      const updatedProj = [...(prev.projects || [])];
+      const item = { ...updatedProj[projIndex] };
+      const highlights = item.highlights || item.bullets || [];
+      item.highlights = [...highlights, ''];
+      item.bullets = item.highlights;
+      updatedProj[projIndex] = item;
+      return { ...prev, projects: updatedProj };
+    });
   };
 
   const deleteProjectBullet = (projIndex, bulletIndex) => {
-    const updatedProj = [...resumeData.projects];
-    const updatedBullets = updatedProj[projIndex].bullets.filter((_, idx) => idx !== bulletIndex);
-    updatedProj[projIndex] = { ...updatedProj[projIndex], bullets: updatedBullets };
-    setResumeData(prev => ({ ...prev, projects: updatedProj }));
+    setResumeData(prev => {
+      const updatedProj = [...(prev.projects || [])];
+      const item = { ...updatedProj[projIndex] };
+      const highlights = (item.highlights || item.bullets || []).filter((_, idx) => idx !== bulletIndex);
+      item.highlights = highlights;
+      item.bullets = highlights;
+      updatedProj[projIndex] = item;
+      return { ...prev, projects: updatedProj };
+    });
   };
 
   const addProject = () => {
-    const empty = { name: '', technologies: '', startDate: '', endDate: '', bullets: [''] };
-    setResumeData(prev => ({ ...prev, projects: [...prev.projects, empty] }));
+    const empty = { name: '', keywords: [], highlights: [''], startDate: '', endDate: '', url: '', description: '' };
+    setResumeData(prev => ({ ...prev, projects: [...(prev.projects || []), empty] }));
   };
 
   const deleteProject = (index) => {
-    const updated = resumeData.projects.filter((_, idx) => idx !== index);
-    setResumeData(prev => ({ ...prev, projects: updated }));
+    setResumeData(prev => {
+      const updated = (prev.projects || []).filter((_, idx) => idx !== index);
+      return { ...prev, projects: updated };
+    });
   };
 
-  const updateSkill = (field, val) => {
-    setResumeData(prev => ({
-      ...prev,
-      skills: { ...prev.skills, [field]: val }
-    }));
+  const updateSkill = (category, val) => {
+    setResumeData(prev => {
+      const skills = Array.isArray(prev.skills) ? [...prev.skills] : [];
+      let item = skills.find(s => s.name?.toLowerCase() === category.toLowerCase());
+      const keywords = val.split(',').map(s => s.trim());
+      if (item) {
+        item.keywords = keywords;
+      } else {
+        skills.push({ name: category, level: 'Intermediate', keywords });
+      }
+      return { ...prev, skills };
+    });
+  };
+
+  // Import/Export functions
+  const handleExportJson = () => {
+    if (!resumeData) return;
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(resumeData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${resumeData.basics?.name || 'resume'}_schema.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    toast.success("JSON Resume schema exported successfully!");
+  };
+
+  const handleImportJson = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target.result);
+        const normalized = isStandardJsonResume(importedData) 
+          ? importedData 
+          : convertToStandardJsonResume(importedData);
+        setResumeData(normalized);
+        toast.success("JSON Resume imported and normalized successfully!");
+      } catch (err) {
+        toast.error("Invalid JSON file format.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null;
+  };
+
+  // AI Optimizer Functions
+  const handleAiOptimize = async () => {
+    setOptimizing(true);
+    try {
+      const response = await axios.post('/students/resume/ai-optimize', {
+        jobDescription,
+        resumeData
+      });
+      if (response.data?.success) {
+        setOptimizedDraft(response.data.resumeData);
+        setQuotaUsed(response.data.quotaUsed);
+        setQuotaLimit(response.data.quotaLimit);
+        setShowDiffModal(true);
+        toast.success("AI optimization proposal generated!");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || "AI optimization failed.");
+    } finally {
+      setOptimizing(false);
+    }
+  };
+
+  const handleApplyOptimization = () => {
+    if (!optimizedDraft) return;
+    setResumeData(optimizedDraft);
+    setShowDiffModal(false);
+    toast.success("AI tailored resume applied to workspace! Saving...");
   };
 
   // Compile LaTeX code mode
@@ -308,15 +552,13 @@ const ResumeBuilder = () => {
     if (activeMode === 'code') return latexSource;
     if (!resumeData) return "";
     const parts = [
-      resumeData.personal?.name,
-      resumeData.personal?.email,
-      resumeData.personal?.location,
-      ...(resumeData.education || []).map(e => `${e.institution} ${e.degree} ${e.field}`),
-      ...(resumeData.experience || []).flatMap(exp => [exp.company, exp.role, ...(exp.bullets || [])]),
-      ...(resumeData.projects || []).flatMap(p => [p.name, p.technologies, ...(p.bullets || [])]),
-      resumeData.skills?.languages,
-      resumeData.skills?.frameworks,
-      resumeData.skills?.tools
+      resumeData.basics?.name,
+      resumeData.basics?.email,
+      resumeData.basics?.location?.city,
+      ...(resumeData.education || []).map(e => `${e.institution} ${e.studyType} ${e.area}`),
+      ...(resumeData.work || resumeData.experience || []).flatMap(w => [w.name || w.company, w.position || w.role, ...(w.highlights || w.bullets || [])]),
+      ...(resumeData.projects || []).flatMap(p => [p.name, Array.isArray(p.keywords) ? p.keywords.join(' ') : p.technologies, ...(p.highlights || p.bullets || [])]),
+      ...(resumeData.skills || []).flatMap(s => [s.name, ...(s.keywords || [])])
     ];
     return parts.filter(Boolean).join("\n");
   };
@@ -348,7 +590,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">Full Name</label>
           <input 
-            value={resumeData.personal?.name || ''} 
+            value={resumeData.basics?.name || ''} 
             onChange={e => updatePersonal('name', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
           />
@@ -356,7 +598,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">Email</label>
           <input 
-            value={resumeData.personal?.email || ''} 
+            value={resumeData.basics?.email || ''} 
             onChange={e => updatePersonal('email', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
           />
@@ -366,7 +608,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">Phone Number</label>
           <input 
-            value={resumeData.personal?.phone || ''} 
+            value={resumeData.basics?.phone || ''} 
             onChange={e => updatePersonal('phone', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
           />
@@ -374,7 +616,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">Location</label>
           <input 
-            value={resumeData.personal?.location || ''} 
+            value={resumeData.basics?.location?.city || ''} 
             onChange={e => updatePersonal('location', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
             placeholder="City, India"
@@ -385,7 +627,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">LinkedIn URL</label>
           <input 
-            value={resumeData.personal?.linkedin || ''} 
+            value={resumeData.basics?.profiles?.find(p => p.network?.toLowerCase() === 'linkedin')?.url || ''} 
             onChange={e => updatePersonal('linkedin', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
             placeholder="linkedin.com/in/..."
@@ -394,7 +636,7 @@ const ResumeBuilder = () => {
         <div>
           <label className="block text-[10px] text-zinc-400 mb-1">GitHub URL</label>
           <input 
-            value={resumeData.personal?.github || ''} 
+            value={resumeData.basics?.profiles?.find(p => p.network?.toLowerCase() === 'github')?.url || ''} 
             onChange={e => updatePersonal('github', e.target.value)}
             className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
             placeholder="github.com/..."
@@ -406,7 +648,7 @@ const ResumeBuilder = () => {
 
   const renderEducationForm = () => (
     <div className="space-y-4 pt-1">
-      {resumeData.education?.map((edu, idx) => (
+      {(resumeData.education || []).map((edu, idx) => (
         <div key={idx} className="p-3 bg-zinc-900/60 border border-zinc-850 rounded-xl space-y-3 relative">
           <button
             onClick={() => deleteEducation(idx)}
@@ -428,7 +670,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">Degree</label>
               <input 
-                value={edu.degree || ''} 
+                value={edu.studyType || edu.degree || ''} 
                 onChange={e => updateEducation(idx, 'degree', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
                 placeholder="B.Tech, High School"
@@ -437,7 +679,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">Field of Study</label>
               <input 
-                value={edu.field || ''} 
+                value={edu.area || edu.field || ''} 
                 onChange={e => updateEducation(idx, 'field', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
                 placeholder="CSE, Science"
@@ -446,7 +688,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">CGPA / Grade</label>
               <input 
-                value={edu.cgpa || ''} 
+                value={edu.score || edu.cgpa || ''} 
                 onChange={e => updateEducation(idx, 'cgpa', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
               />
@@ -485,7 +727,7 @@ const ResumeBuilder = () => {
 
   const renderExperienceForm = () => (
     <div className="space-y-4 pt-1">
-      {resumeData.experience?.map((exp, idx) => (
+      {(resumeData.work || resumeData.experience || []).map((exp, idx) => (
         <div key={idx} className="p-3 bg-zinc-900/60 border border-zinc-850 rounded-xl space-y-3 relative">
           <button
             onClick={() => deleteExperience(idx)}
@@ -499,7 +741,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">Company</label>
               <input 
-                value={exp.company || ''} 
+                value={exp.name || exp.company || ''} 
                 onChange={e => updateExperience(idx, 'company', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
               />
@@ -507,7 +749,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">Role</label>
               <input 
-                value={exp.role || ''} 
+                value={exp.position || exp.role || ''} 
                 onChange={e => updateExperience(idx, 'role', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
               />
@@ -536,8 +778,8 @@ const ResumeBuilder = () => {
           
           {/* Bullet Points */}
           <div className="space-y-1.5 pt-1">
-            <label className="block text-[10px] font-mono uppercase text-zinc-550">Description Bullets</label>
-            {exp.bullets?.map((b, bIdx) => (
+            <label className="block text-[10px] font-mono uppercase text-zinc-555">Description Bullets</label>
+            {(exp.highlights || exp.bullets || []).map((b, bIdx) => (
               <div key={bIdx} className="flex gap-2 items-center">
                 <span className="text-zinc-650 text-xs shrink-0 select-none">•</span>
                 <input 
@@ -575,7 +817,7 @@ const ResumeBuilder = () => {
 
   const renderProjectsForm = () => (
     <div className="space-y-4 pt-1">
-      {resumeData.projects?.map((proj, idx) => (
+      {(resumeData.projects || []).map((proj, idx) => (
         <div key={idx} className="p-3 bg-zinc-900/60 border border-zinc-850 rounded-xl space-y-3 relative">
           <button
             onClick={() => deleteProject(idx)}
@@ -597,7 +839,7 @@ const ResumeBuilder = () => {
             <div>
               <label className="block text-[10px] text-zinc-400 mb-1">Technologies Used</label>
               <input 
-                value={proj.technologies || ''} 
+                value={Array.isArray(proj.keywords) ? proj.keywords.join(', ') : (proj.technologies || '')} 
                 onChange={e => updateProject(idx, 'technologies', e.target.value)}
                 className="w-full px-2.5 py-1.5 bg-zinc-900 border border-zinc-850 rounded text-xs focus:outline-none focus:border-zinc-700"
                 placeholder="React, Express, Git"
@@ -627,8 +869,8 @@ const ResumeBuilder = () => {
           
           {/* Project Bullets */}
           <div className="space-y-1.5 pt-1">
-            <label className="block text-[10px] font-mono uppercase text-zinc-550">Accomplishment Bullets</label>
-            {proj.bullets?.map((b, bIdx) => (
+            <label className="block text-[10px] font-mono uppercase text-zinc-555">Accomplishment Bullets</label>
+            {(proj.highlights || proj.bullets || []).map((b, bIdx) => (
               <div key={bIdx} className="flex gap-2 items-center">
                 <span className="text-zinc-650 text-xs shrink-0 select-none">•</span>
                 <input 
@@ -664,39 +906,47 @@ const ResumeBuilder = () => {
     </div>
   );
 
-  const renderSkillsForm = () => (
-    <div className="space-y-4 pt-1">
-      <div className="bg-zinc-900/60 p-4 border border-zinc-850 rounded-xl space-y-4">
-        <div>
-          <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Programming Languages</label>
-          <input 
-            value={resumeData.skills?.languages || ''} 
-            onChange={e => updateSkill('languages', e.target.value)}
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
-            placeholder="JavaScript, Python, C++, SQL"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Libraries & Frameworks</label>
-          <input 
-            value={resumeData.skills?.frameworks || ''} 
-            onChange={e => updateSkill('frameworks', e.target.value)}
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
-            placeholder="React, Express, Node.js, TailwindCSS"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Tools & Platforms</label>
-          <input 
-            value={resumeData.skills?.tools || ''} 
-            onChange={e => updateSkill('tools', e.target.value)}
-            className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
-            placeholder="Git, Docker, Postman, AWS, MongoDB"
-          />
+  const renderSkillsForm = () => {
+    const skillsArr = Array.isArray(resumeData.skills) ? resumeData.skills : [];
+    const getSkillKeywords = (cat) => {
+      const match = skillsArr.find(s => s.name?.toLowerCase() === cat.toLowerCase());
+      return match?.keywords ? match.keywords.join(', ') : '';
+    };
+
+    return (
+      <div className="space-y-4 pt-1">
+        <div className="bg-zinc-900/60 p-4 border border-zinc-850 rounded-xl space-y-4">
+          <div>
+            <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Programming Languages</label>
+            <input 
+              value={getSkillKeywords('languages') || resumeData.skills?.languages || ''} 
+              onChange={e => updateSkill('languages', e.target.value)}
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
+              placeholder="JavaScript, Python, C++, SQL"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Libraries & Frameworks</label>
+            <input 
+              value={getSkillKeywords('frameworks') || resumeData.skills?.frameworks || ''} 
+              onChange={e => updateSkill('frameworks', e.target.value)}
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
+              placeholder="React, Express, Node.js, TailwindCSS"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">Tools & Platforms</label>
+            <input 
+              value={getSkillKeywords('tools') || resumeData.skills?.tools || ''} 
+              onChange={e => updateSkill('tools', e.target.value)}
+              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-850 rounded-lg text-xs focus:outline-none focus:border-zinc-700"
+              placeholder="Git, Docker, Postman, AWS, MongoDB"
+            />
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderTemplateSelector = () => (
     <div className="space-y-4 pt-1">
@@ -727,12 +977,65 @@ const ResumeBuilder = () => {
     </div>
   );
 
+  const renderAiOptimizerForm = () => (
+    <div className="space-y-4 pt-1">
+      <div className="bg-zinc-900/60 p-4 border border-zinc-850 rounded-xl space-y-4">
+        {/* Quota Status */}
+        <div className="flex justify-between items-center bg-zinc-950 p-3 border border-zinc-850 rounded-lg text-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="text-primary-500 animate-pulse" size={14} />
+            <span className="font-semibold text-zinc-350">Monthly AI Rewrite Quota</span>
+          </div>
+          <span className="font-mono text-zinc-300 font-bold bg-zinc-900 px-2 py-0.5 rounded">
+            {quotaLimit - quotaUsed} / {quotaLimit} Left
+          </span>
+        </div>
+
+        <div>
+          <label className="block text-[10px] text-zinc-400 mb-1.5 uppercase font-mono tracking-wider">
+            Target Job Description
+          </label>
+          <textarea
+            value={jobDescription}
+            onChange={e => setJobDescription(e.target.value)}
+            rows={6}
+            className="w-full bg-zinc-900 text-zinc-200 border border-zinc-850 rounded-lg p-2.5 text-xs focus:outline-none focus:border-zinc-700 leading-normal resize-none"
+            placeholder="Paste the target job description or requirements here to tailor your resume..."
+          />
+        </div>
+
+        <button
+          onClick={handleAiOptimize}
+          disabled={optimizing || !jobDescription || quotaUsed >= quotaLimit}
+          className="w-full flex items-center justify-center gap-2 py-2 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-bold rounded-lg shadow-lg shadow-primary-500/10 transition-all disabled:opacity-50"
+        >
+          {optimizing ? (
+            <>
+              <RefreshCw size={14} className="animate-spin" />
+              Tailoring Resume...
+            </>
+          ) : (
+            <>
+              <Sparkles size={14} />
+              Optimize Resume with Claude AI
+            </>
+          )}
+        </button>
+        {quotaUsed >= quotaLimit && (
+          <p className="text-[10px] text-red-400 text-center font-mono">
+            Quota exceeded for this billing cycle. Resets on {new Date(resetDate).toLocaleDateString()}.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
   const sectionsList = resumeData ? [
     { 
       id: 'personal', 
       name: 'Contact Details', 
       icon: FileSignature, 
-      completed: !!(resumeData.personal?.name && resumeData.personal?.email && resumeData.personal?.phone && resumeData.personal?.phone !== '+91 9876543210') 
+      completed: !!((resumeData.basics?.name || resumeData.personal?.name) && (resumeData.basics?.email || resumeData.personal?.email) && (resumeData.basics?.phone || resumeData.personal?.phone) && (resumeData.basics?.phone !== '+91 9876543210' && resumeData.personal?.phone !== '+91 9876543210')) 
     },
     { 
       id: 'education', 
@@ -744,7 +1047,7 @@ const ResumeBuilder = () => {
       id: 'experience', 
       name: 'Work Experience', 
       icon: FileText, 
-      completed: !!(resumeData.experience?.length > 0 && resumeData.experience[0]?.company && resumeData.experience[0]?.company !== 'PlaceIQ Corp') 
+      completed: !!((resumeData.work || resumeData.experience)?.length > 0 && ((resumeData.work || resumeData.experience)[0]?.name || (resumeData.work || resumeData.experience)[0]?.company) && (resumeData.work || resumeData.experience)[0]?.name !== 'PlaceIQ Corp' && (resumeData.work || resumeData.experience)[0]?.company !== 'PlaceIQ Corp') 
     },
     { 
       id: 'projects', 
@@ -756,9 +1059,13 @@ const ResumeBuilder = () => {
       id: 'skills', 
       name: 'Skills Summary', 
       icon: Save, 
-      completed: !!(resumeData.skills?.languages && resumeData.skills?.languages !== 'JavaScript, Python, C++, SQL') 
+      completed: !!(
+        (Array.isArray(resumeData.skills) && resumeData.skills.length > 0) || 
+        (resumeData.skills?.languages && resumeData.skills?.languages !== 'JavaScript, Python, C++, SQL')
+      ) 
     },
-    { id: 'templates', name: 'Choose Template', icon: Sparkles, completed: true }
+    { id: 'templates', name: 'Choose Template', icon: Sparkles, completed: true },
+    { id: 'ai-optimizer', name: 'AI Resume Optimizer', icon: Sparkles, completed: true }
   ] : [];
 
   if (!resumeData) {
@@ -806,12 +1113,38 @@ const ResumeBuilder = () => {
       </div>
 
       {/* ── Workspace ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 lg:overflow-hidden">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[4fr_6fr] gap-4 lg:overflow-hidden">
         
         {/* Left pane: Active Editor Accordion / LaTeX Code */}
-        <div className="lg:col-span-5 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
+        <div className="flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
           {activeMode === 'form' ? (
             <div className="space-y-3 p-4">
+              {/* Import/Export Panel */}
+              <div className="p-3 bg-zinc-900/40 border border-zinc-850 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div className="text-zinc-400 font-medium">JSON Resume Schema</div>
+                <div className="flex gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImportJson}
+                    accept=".json"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
+                  >
+                    <Upload size={12} /> Import JSON
+                  </button>
+                  <button
+                    onClick={handleExportJson}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
+                  >
+                    <Download size={12} /> Export JSON
+                  </button>
+                </div>
+              </div>
+
               {sectionsList.map(sec => {
                 const Icon = sec.icon;
                 const isOpen = activeSection === sec.id;
@@ -843,7 +1176,7 @@ const ResumeBuilder = () => {
                             ✓ Complete
                           </span>
                         )}
-                        <span className="text-zinc-600 text-[9px] select-none font-mono">
+                        <span className="text-zinc-650 text-[9px] select-none font-mono">
                           {isOpen ? '▲' : '▼'}
                         </span>
                       </div>
@@ -858,6 +1191,7 @@ const ResumeBuilder = () => {
                         {sec.id === 'projects' && renderProjectsForm()}
                         {sec.id === 'skills' && renderSkillsForm()}
                         {sec.id === 'templates' && renderTemplateSelector()}
+                        {sec.id === 'ai-optimizer' && renderAiOptimizerForm()}
                       </div>
                     )}
                   </div>
@@ -891,7 +1225,7 @@ const ResumeBuilder = () => {
                   <button
                     onClick={() => compileLatexCode()}
                     disabled={compilingCode || !latexSource}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded transition-all"
                   >
                     {compilingCode ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
                     Compile PDF
@@ -911,7 +1245,7 @@ const ResumeBuilder = () => {
         </div>
 
         {/* Center/Right pane: PDF preview & widget area */}
-        <div className="lg:col-span-7 flex flex-col gap-4 lg:h-full lg:overflow-hidden">
+        <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden">
           
           {/* PDF preview container */}
           <div className="flex-1 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[500px] lg:min-h-0">
@@ -939,7 +1273,7 @@ const ResumeBuilder = () => {
                     if (!url) return;
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `${resumeData.personal?.name || 'Resume'}.pdf`;
+                    link.download = `${resumeData.basics?.name || 'Resume'}.pdf`;
                     link.click();
                   };
 
@@ -948,15 +1282,21 @@ const ResumeBuilder = () => {
                       {/* Premium Viewer Toolbar */}
                       <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
+                          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">live_preview.pdf</span>
                           <span className="text-[9px] text-zinc-650">•</span>
                           <span className="text-[9px] font-mono text-zinc-550 flex items-center gap-1">
-                            <span className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'Saving...' ? 'bg-amber-500 animate-pulse' : saveStatus === 'Auto-saved' ? 'bg-emerald-500' : 'bg-zinc-600'}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'Saving...' ? 'bg-amber-500 animate-pulse' : saveStatus === 'Auto-saved' ? 'bg-emerald-500' : 'bg-zinc-650'}`} />
                             {saveIndicatorText}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* Page Count Badge */}
+                          <span className="text-[9px] font-mono px-2 py-0.5 bg-zinc-950 border border-zinc-850 text-zinc-400 rounded-md select-none">
+                            1 Page Template
+                          </span>
+                          <span className="w-[1px] h-3.5 bg-zinc-850 mx-0.5" />
+                          
                           {/* Zoom Scale Controls */}
                           <div className="flex items-center gap-1 bg-zinc-950 p-0.5 border border-zinc-850 rounded-lg">
                             <button 
@@ -1012,7 +1352,7 @@ const ResumeBuilder = () => {
                           }}
                           aria-label="Structured Resume PDF Preview"
                         >
-                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-405 text-xs bg-zinc-900">
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-450 text-xs bg-zinc-900">
                             <FileText size={32} className="text-zinc-700 mb-2" />
                             <p>PDF preview loaded.</p>
                             <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
@@ -1024,7 +1364,7 @@ const ResumeBuilder = () => {
 
                       {/* Instant Save Bar */}
                       <div className="p-3 bg-zinc-950/90 border-t border-zinc-850 flex justify-between items-center gap-3 shrink-0">
-                        <span className="text-[10px] text-zinc-500 font-mono">PDF compiled client-side instantly.</span>
+                        <span className="text-[10px] text-zinc-550 font-mono">PDF compiled client-side instantly.</span>
                         <button
                           onClick={() => handleSaveForm(blob)}
                           disabled={saving}
@@ -1041,13 +1381,13 @@ const ResumeBuilder = () => {
                           <div className="flex justify-between items-center border-b border-zinc-850 pb-3">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-mono uppercase tracking-widest text-zinc-400">fullscreen_preview.pdf</span>
-                              <span className="text-[9px] text-zinc-600 font-mono">|</span>
+                              <span className="text-[9px] text-zinc-650 font-mono">|</span>
                               <span className="text-[10px] text-zinc-500 font-mono">Press ESC to exit</span>
                             </div>
                             <div className="flex items-center gap-3">
                               <button
                                 onClick={handleDownload}
-                                className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-lg"
+                                className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-805 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-lg"
                               >
                                 <Download size={12} /> Download
                               </button>
@@ -1132,7 +1472,7 @@ const ResumeBuilder = () => {
             </div>
             <div className="flex-1 bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2.5 text-xs text-zinc-400 flex flex-col justify-between">
               <div className="space-y-1.5">
-                <span className="font-semibold text-zinc-300 block">Resume Rationale & Styling</span>
+                <span className="font-semibold text-zinc-350 block">Resume Rationale & Styling</span>
                 <p className="leading-relaxed text-[11px] text-zinc-500">
                   This builder is designed specifically around single-page recruiter-friendly standards. 
                   By separating content fields from styling templates, you avoid parsing bugs and guarantee your resume compiles correctly in automated placement filters.
@@ -1202,6 +1542,193 @@ const ResumeBuilder = () => {
           </div>
         </div>
       )}
+
+      {/* ── AI Side-by-Side Comparison Diff Modal ── */}
+      {showDiffModal && optimizedDraft && (
+        <div className="fixed inset-0 z-[10000] bg-zinc-950/90 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-5xl max-h-[85vh] flex flex-col shadow-2xl">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-zinc-850 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="text-primary-500" size={18} />
+                <div>
+                  <h3 className="font-semibold text-zinc-100 text-sm">Review AI Optimized Resume</h3>
+                  <p className="text-[11px] text-zinc-500">Compare original content with Claude's tailored draft before applying.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowDiffModal(false)}
+                className="text-zinc-500 hover:text-zinc-350 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              
+              {/* Help Banner */}
+              <div className="bg-primary-500/5 border border-primary-500/10 p-3 rounded-lg flex gap-2.5 text-[11px] text-primary-400">
+                <Info size={15} className="shrink-0 mt-0.5" />
+                <p>
+                  We have tailored your experience summaries, project descriptions, and keywords to semantically align with the job description. Review and click "Apply" to save.
+                </p>
+              </div>
+
+              {/* Grid Column Labels */}
+              <div className="grid grid-cols-2 gap-6 border-b border-zinc-850 pb-2 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                <div>Original Resume</div>
+                <div>AI Tailored Draft</div>
+              </div>
+
+              {/* Summary Diff */}
+              {((resumeData.basics?.summary || '') !== (optimizedDraft.basics?.summary || '')) && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-zinc-350 font-mono uppercase tracking-wider">Professional Summary</h4>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="p-3.5 bg-red-950/10 border border-red-500/10 rounded-xl text-xs text-red-400/80 leading-relaxed">
+                      {resumeData.basics?.summary || <span className="italic text-zinc-650">No summary.</span>}
+                    </div>
+                    <div className="p-3.5 bg-emerald-950/10 border border-emerald-500/10 rounded-xl text-xs text-emerald-300 leading-relaxed">
+                      {optimizedDraft.basics?.summary}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Experience Highlights Diff */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-350 font-mono uppercase tracking-wider">Work Experience Highlights</h4>
+                {(optimizedDraft.work || []).map((w, idx) => {
+                  const origW = (resumeData.work || [])[idx] || {};
+                  const origHighlights = origW.highlights || origW.bullets || [];
+                  const newHighlights = w.highlights || w.bullets || [];
+
+                  return (
+                    <div key={idx} className="space-y-2 border-t border-zinc-850/60 pt-3">
+                      <div className="text-xs font-bold text-zinc-350">{w.name} — {w.position}</div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2 p-3.5 bg-red-950/10 border border-red-500/5 rounded-xl text-xs text-red-400/80">
+                          {origHighlights.length > 0 ? origHighlights.map((hl, hIdx) => (
+                            <div key={hIdx} className="flex gap-2">
+                              <span className="shrink-0">•</span>
+                              <span>{hl}</span>
+                            </div>
+                          )) : <span className="italic text-zinc-650">No bullets.</span>}
+                        </div>
+                        <div className="space-y-2 p-3.5 bg-emerald-950/10 border border-emerald-500/5 rounded-xl text-xs text-emerald-300">
+                          {newHighlights.map((hl, hIdx) => {
+                            const isChanged = origHighlights[hIdx] !== hl;
+                            return (
+                              <div key={hIdx} className={`flex gap-2 ${isChanged ? 'text-emerald-200 font-medium' : 'text-emerald-400/85'}`}>
+                                <span className="shrink-0">•</span>
+                                <span>{hl}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Projects Highlights Diff */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-350 font-mono uppercase tracking-wider">Academic Projects Highlights</h4>
+                {(optimizedDraft.projects || []).map((p, idx) => {
+                  const origP = (resumeData.projects || [])[idx] || {};
+                  const origHighlights = origP.highlights || origP.bullets || [];
+                  const newHighlights = p.highlights || p.bullets || [];
+
+                  return (
+                    <div key={idx} className="space-y-2 border-t border-zinc-850/60 pt-3">
+                      <div className="text-xs font-bold text-zinc-350">Project: {p.name}</div>
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2 p-3.5 bg-red-950/10 border border-red-500/5 rounded-xl text-xs text-red-400/80">
+                          <div className="text-[10px] text-red-500/70 font-mono mb-1">
+                            Keywords: {Array.isArray(origP.keywords) ? origP.keywords.join(', ') : (origP.technologies || '')}
+                          </div>
+                          {origHighlights.map((hl, hIdx) => (
+                            <div key={hIdx} className="flex gap-2">
+                              <span className="shrink-0">•</span>
+                              <span>{hl}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2 p-3.5 bg-emerald-950/10 border border-emerald-500/5 rounded-xl text-xs text-emerald-300">
+                          <div className="text-[10px] text-emerald-400/70 font-mono mb-1">
+                            Keywords: {Array.isArray(p.keywords) ? p.keywords.join(', ') : ''}
+                          </div>
+                          {newHighlights.map((hl, hIdx) => {
+                            const isChanged = origHighlights[hIdx] !== hl;
+                            return (
+                              <div key={hIdx} className={`flex gap-2 ${isChanged ? 'text-emerald-200 font-medium' : 'text-emerald-400/85'}`}>
+                                <span className="shrink-0">•</span>
+                                <span>{hl}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Skills Keywords Diff */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold text-zinc-350 font-mono uppercase tracking-wider">Skills & Categorized Keywords</h4>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="p-3.5 bg-red-950/10 border border-red-500/5 rounded-xl space-y-2">
+                    {Array.isArray(resumeData.skills) ? resumeData.skills.map((s, idx) => (
+                      <div key={idx} className="text-xs text-red-400/80">
+                        <strong className="text-red-500/70 capitalize font-mono text-[10px] tracking-wider">{s.name}:</strong>{' '}
+                        {Array.isArray(s.keywords) ? s.keywords.join(', ') : ''}
+                      </div>
+                    )) : (
+                      <div className="text-xs text-red-400/80">
+                        <div><strong className="text-red-500/70 font-mono text-[10px]">Languages:</strong> {resumeData.skills?.languages}</div>
+                        <div><strong className="text-red-500/70 font-mono text-[10px]">Frameworks:</strong> {resumeData.skills?.frameworks}</div>
+                        <div><strong className="text-red-500/70 font-mono text-[10px]">Tools:</strong> {resumeData.skills?.tools}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3.5 bg-emerald-950/10 border border-emerald-500/5 rounded-xl space-y-2">
+                    {(optimizedDraft.skills || []).map((s, idx) => (
+                      <div key={idx} className="text-xs text-emerald-300">
+                        <strong className="text-emerald-400/70 capitalize font-mono text-[10px] tracking-wider">{s.name}:</strong>{' '}
+                        {Array.isArray(s.keywords) ? s.keywords.join(', ') : ''}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="px-6 py-4 border-t border-zinc-850 bg-zinc-950/40 flex justify-end gap-3 shrink-0 rounded-b-2xl">
+              <button
+                onClick={() => setShowDiffModal(false)}
+                className="px-4 py-2 border border-zinc-800 hover:border-zinc-700 text-zinc-350 hover:text-zinc-200 text-xs font-semibold rounded-lg transition-colors"
+              >
+                Discard Draft
+              </button>
+              <button
+                onClick={handleApplyOptimization}
+                className="flex items-center gap-1.5 px-5 py-2 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-bold rounded-lg shadow-lg shadow-primary-500/10 transition-all"
+              >
+                <Check size={14} />
+                Apply & Overwrite
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

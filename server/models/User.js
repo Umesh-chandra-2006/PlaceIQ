@@ -35,6 +35,8 @@ const userSchema = new mongoose.Schema({
   resetPasswordExpires: Date,
   aiReviewsUsed: { type: Number, default: 0 },
   aiReviewResetDate: Date,
+  aiOptimizationsUsed: { type: Number, default: 0 },
+  aiOptimizationResetDate: Date,
   placementStatus: {
     type: String,
     enum: ["not_placed", "placed_on_campus", "placed_off_campus", "opted_out"],

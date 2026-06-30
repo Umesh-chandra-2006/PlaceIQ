@@ -95,17 +95,22 @@ describe("Student Resume Builder Routes", () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body.resumeData).toBeDefined();
-    expect(res.body.resumeData.personal.name).toBe("John Student");
+    expect(res.body.resumeData.basics.name).toBe("John Student");
     expect(res.body.resumeData.education[0].institution).toBe("College Education");
   });
 
   it("should save structured JSON resumeData, extract text, and compile PDF", async () => {
     const mockResumeData = {
-      personal: { name: "John Test", email: "john@test.com", phone: "12345", location: "Bangalore" },
-      education: [{ institution: "IIT", degree: "B.Tech", field: "CSE", cgpa: "9.8" }],
-      experience: [{ company: "Google", role: "SDE", bullets: ["Solved complex search scale problems"] }],
-      projects: [{ name: "PlaceIQ", technologies: "React", bullets: ["Created live ATS review matching score widget"] }],
-      skills: { languages: "JavaScript", frameworks: "Node.js", tools: "Git" }
+      basics: {
+        name: "John Test",
+        email: "john@test.com",
+        phone: "12345",
+        location: { city: "Bangalore" }
+      },
+      education: [{ institution: "IIT", studyType: "B.Tech", area: "CSE", score: "9.8" }],
+      work: [{ name: "Google", position: "SDE", highlights: ["Solved complex search scale problems"] }],
+      projects: [{ name: "PlaceIQ", keywords: ["React"], highlights: ["Created live ATS review matching score widget"] }],
+      skills: [{ name: "Languages", keywords: ["JavaScript"] }]
     };
 
     const res = await request(app)
@@ -120,7 +125,7 @@ describe("Student Resume Builder Routes", () => {
     expect(res.body.resumeUrl).toBe("http://mockurl.com/resume.pdf");
 
     const user = await User.findById(mockUser._id);
-    expect(user.resumeData.personal.name).toBe("John Test");
+    expect(user.resumeData.basics.name).toBe("John Test");
     expect(user.resumeUrl).toBe("http://mockurl.com/resume.pdf");
     expect(user.resumeText).toContain("John Test");
     expect(user.resumeText).toContain("IIT");

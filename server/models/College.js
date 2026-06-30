@@ -13,6 +13,7 @@ const collegeSchema = new mongoose.Schema({
   departments: { type: [String], default: ["CSE", "ECE", "MECH", "CIVIL", "EEE", "IT"] },
   cgpaScale: { type: Number, enum: [5, 10], default: 10 },
   aiReviewQuota: { type: Number, default: 3 },
+  aiOptimizationQuota: { type: Number, default: 25 },
   isActive: { type: Boolean, default: true },
   isDeleted: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
