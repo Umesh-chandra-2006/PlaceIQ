@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronRight, ChevronLeft, Play, Sparkles } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import axios from '../../api/axios';
 
 const studentSteps = [
   {
@@ -107,6 +109,7 @@ const coordinatorSteps = [
 ];
 
 const OnboardingTour = ({ role }) => {
+  const { user, updateUser } = useAuth();
   const steps = role === 'coordinator' ? coordinatorSteps : studentSteps;
   const location = useLocation();
   const navigate = useNavigate();
@@ -117,9 +120,9 @@ const OnboardingTour = ({ role }) => {
   const tooltipRef = useRef(null);
   const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
 
-  // Initialize: run if local storage key is not set
+  // Initialize: run if local storage key is not set and user has not completed tour in DB
   useEffect(() => {
-    const isCompleted = localStorage.getItem(`has-completed-tour-${role}`) === 'true';
+    const isCompleted = user?.hasCompletedTour || localStorage.getItem(`has-completed-tour-${role}`) === 'true';
     if (!isCompleted) {
       // Only auto-start the tour if the user is on the main landing/dashboard route.
       // This prevents interrupting the user if they directly access a sub-page.
@@ -136,7 +139,7 @@ const OnboardingTour = ({ role }) => {
       return () => clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, location.pathname]);
+  }, [role, location.pathname, user?.hasCompletedTour]);
 
   const activeStep = steps[currentStepIndex];
 
@@ -257,9 +260,15 @@ const OnboardingTour = ({ role }) => {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     localStorage.setItem(`has-completed-tour-${role}`, 'true');
     setIsActive(false);
+    try {
+      await axios.put('/auth/complete-tour');
+      updateUser({ hasCompletedTour: true });
+    } catch (e) {
+      console.error("Failed to save tour completion in database:", e);
+    }
   };
 
   const handleSkip = () => {

@@ -11,7 +11,7 @@ const companySchema = new mongoose.Schema({
   publicData: {
     avgCtc: String,
     employeeRange: String,
-    industry: String,
+    industry: { type: String, required: true },
     glassdoorRating: Number
   },
   historicalData: [{
@@ -22,9 +22,9 @@ const companySchema = new mongoose.Schema({
     interviewRounds: Number,
     branches: [String]
   }],
-  contactPerson: String,
-  contactEmail: String,
-  contactPhone: String,
+  contactPerson: { type: String, required: true },
+  contactEmail: { type: String, required: true },
+  contactPhone: { type: String, required: true },
   notes: String,
   createdAt: { type: Date, default: Date.now }
 });

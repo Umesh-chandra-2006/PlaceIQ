@@ -49,6 +49,7 @@ router.post("/login", async (req, res) => {
         role: user.role,
         subRole: user.subRole,
         collegeId: user.collegeId,
+        hasCompletedTour: user.hasCompletedTour || false,
         token: jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" })
       });
     } else {
@@ -68,7 +69,15 @@ router.get("/setup-verify", async (req, res) => {
     if (!email || !token) {
       return res.status(400).json({ error: "Email and token are required." });
     }
-    const user = await User.findOne({ email, setupToken: token });
+    const user = await User.findOne({ 
+      email, 
+      setupToken: token,
+      $or: [
+        { setupTokenExpiresAt: { $exists: false } },
+        { setupTokenExpiresAt: null },
+        { setupTokenExpiresAt: { $gt: new Date() } }
+      ]
+    });
     if (!user) {
       return res.status(404).json({ error: "Invalid setup link or expired token." });
     }
@@ -87,7 +96,15 @@ router.post("/setup-complete", async (req, res) => {
       return res.status(400).json({ error: "Email, token, and password are required." });
     }
 
-    const user = await User.findOne({ email, setupToken: token });
+    const user = await User.findOne({ 
+      email, 
+      setupToken: token,
+      $or: [
+        { setupTokenExpiresAt: { $exists: false } },
+        { setupTokenExpiresAt: null },
+        { setupTokenExpiresAt: { $gt: new Date() } }
+      ]
+    });
     if (!user) {
       return res.status(404).json({ error: "Invalid or expired setup token." });
     }
@@ -96,6 +113,7 @@ router.post("/setup-complete", async (req, res) => {
     user.passwordHash = await bcrypt.hash(password, salt);
     user.isSetup = true;
     user.setupToken = undefined; // clear token
+    user.setupTokenExpiresAt = undefined; // clear expiry
     
     await user.save();
 
@@ -106,6 +124,7 @@ router.post("/setup-complete", async (req, res) => {
       role: user.role,
       subRole: user.subRole,
       collegeId: user.collegeId,
+      hasCompletedTour: user.hasCompletedTour || false,
       token: jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "24h" })
     });
   } catch (error) {
@@ -248,6 +267,30 @@ router.post("/reset-password", async (req, res) => {
   } catch (error) {
     console.error("Reset Password Error:", error);
     res.status(500).json({ error: "Server error during password reset." });
+  }
+});
+
+// @route   PUT /api/auth/complete-tour
+// @desc    Mark onboarding tour as completed
+router.put("/complete-tour", protect, async (req, res) => {
+  try {
+    req.user.hasCompletedTour = true;
+    await req.user.save();
+    res.json({ message: "Tour completion saved", hasCompletedTour: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @route   PUT /api/auth/reset-tour
+// @desc    Reset onboarding tour completion status
+router.put("/reset-tour", protect, async (req, res) => {
+  try {
+    req.user.hasCompletedTour = false;
+    await req.user.save();
+    res.json({ message: "Tour completion reset", hasCompletedTour: false });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

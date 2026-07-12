@@ -77,7 +77,7 @@ const CollegesTable = ({
                           <MoreVertical size={14} />
                         </button>
                         {activeDropdown === col._id && (
-                          <div className="absolute right-0 mt-8 w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl z-30 py-1 text-left font-sans text-xs animate-fadeIn select-none">
+                          <div className="absolute right-0 mt-8 w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl z-30 py-1 text-left font-sans text-xs animate-fadeIn select-none max-h-60 overflow-y-auto">
                             {!col.isAdminSetup && (
                               <>
                                 <button 

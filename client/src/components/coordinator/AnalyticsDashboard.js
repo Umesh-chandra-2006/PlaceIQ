@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { Loader2, TrendingUp, AlertTriangle, CheckCircle, Users, FileText } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend, PieChart, Pie, Cell
 } from 'recharts';
 
 const AnalyticsDashboard = () => {
+  const { user } = useAuth();
+  const isPaid = user?.subRole === 'coordinator_paid';
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     overview: null,
@@ -17,8 +20,12 @@ const AnalyticsDashboard = () => {
   });
 
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    if (isPaid) {
+      fetchAnalytics();
+    } else {
+      setLoading(false);
+    }
+  }, [isPaid]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -89,6 +96,23 @@ const AnalyticsDashboard = () => {
     return (
       <div className="flex justify-center p-8 h-[60vh] items-center">
         <Loader2 className="animate-spin text-primary-500" size={32} />
+      </div>
+    );
+  }
+
+  if (!isPaid) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center border border-zinc-800 rounded-lg bg-zinc-950 p-8 text-center max-w-xl mx-auto my-12 shadow-2xl animate-fadeIn">
+        <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-full mb-4 font-sans">
+          <TrendingUp size={32} />
+        </div>
+        <h2 className="text-lg font-bold text-zinc-100 mb-2 font-mono uppercase tracking-wider text-xs">Visual Analytics is a Pro Feature</h2>
+        <p className="text-sm text-zinc-400 leading-relaxed mb-6">
+          Upgrade to the PlaceIQ Pro Plan to unlock cohort placement performance, ATS score distributions, and real-time activity metrics.
+        </p>
+        <div className="text-xs text-zinc-500 border-t border-zinc-800/60 pt-4 w-full font-sans">
+          Please contact your college administrator to activate the Pro Tier license.
+        </div>
       </div>
     );
   }

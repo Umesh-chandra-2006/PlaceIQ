@@ -299,21 +299,7 @@ const Sidebar = ({ variant }) => {
             {isExpandedVisually && <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>}
           </button>
 
-          {user && (user.role === 'student' || user.role === 'coordinator') && (
-            <button
-              onClick={() => {
-                localStorage.removeItem(`has-completed-tour-${user.role}`);
-                window.location.reload();
-              }}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 rounded transition-colors ${
-                isExpandedVisually ? 'justify-start' : 'justify-center p-2 w-10 h-10 mx-auto'
-              }`}
-              title="Restart Tutorial Tour"
-            >
-              <HelpCircle size={16} /> 
-              {isExpandedVisually && <span>Restart Tour</span>}
-            </button>
-          )}
+
 
           <button
             onClick={handleLogout}

@@ -72,6 +72,22 @@ const Profile = () => {
                 {isPaid ? 'Paid Pro' : 'Free Trial'}
               </span>
             </div>
+            <div className="pt-4 border-t border-zinc-900 flex justify-between items-center mt-2">
+              <span className="text-zinc-500 text-xs uppercase">Help & Tour</span>
+              <button 
+                onClick={async () => {
+                  localStorage.removeItem(`has-completed-tour-coordinator`);
+                  try {
+                    await axios.put('/auth/reset-tour');
+                  } catch (e) {}
+                  alert("Onboarding walkthrough tour reset. Redirecting to dashboard...");
+                  window.location.href = '/coordinator';
+                }}
+                className="text-[10px] uppercase font-bold text-primary-500 hover:text-primary-400 transition-colors font-mono"
+              >
+                Restart Walkthrough Tour
+              </button>
+            </div>
           </div>
         </div>
 

@@ -85,6 +85,10 @@ const CompaniesManager = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!name.trim() || !contactPerson.trim() || !contactEmail.trim() || !contactPhone.trim() || !industry.trim()) {
+      alert("Please fill out all required fields: Company Name, Contact Name, Email, Phone, and Industry.");
+      return;
+    }
     setSubmitting(true);
     
     const payload = {
@@ -364,9 +368,10 @@ const CompaniesManager = () => {
 
                 {/* Contact Person */}
                 <div>
-                  <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Contact Name</label>
+                  <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Contact Name *</label>
                   <input
                     type="text"
+                    required
                     value={contactPerson}
                     onChange={(e) => setContactPerson(e.target.value)}
                     placeholder="e.g. John Doe (Talent Lead)"
@@ -377,9 +382,10 @@ const CompaniesManager = () => {
                 {/* Contact Email & Phone */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Email Address</label>
+                    <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Email Address *</label>
                     <input
                       type="email"
+                      required
                       value={contactEmail}
                       onChange={(e) => setContactEmail(e.target.value)}
                       placeholder="hr@company.com"
@@ -387,9 +393,10 @@ const CompaniesManager = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Phone Number</label>
+                    <label className="block text-[10px] uppercase font-mono tracking-wider text-zinc-500 mb-1.5">Phone Number *</label>
                     <input
                       type="text"
+                      required
                       value={contactPhone}
                       onChange={(e) => setContactPhone(e.target.value)}
                       placeholder="+91 XXXXX XXXXX"
@@ -414,9 +421,10 @@ const CompaniesManager = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase font-mono tracking-wider text-zinc-500 mb-1">Industry</label>
+                    <label className="block text-[9px] uppercase font-mono tracking-wider text-zinc-500 mb-1">Industry *</label>
                     <input
                       type="text"
+                      required
                       value={industry}
                       onChange={(e) => setIndustry(e.target.value)}
                       placeholder="SaaS"

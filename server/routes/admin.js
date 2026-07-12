@@ -7,6 +7,8 @@ const crypto = require("crypto");
 const College = require("../models/College");
 const { protect } = require("../middleware/auth");
 const { requireRole } = require("../middleware/requireRole");
+const cacheMiddleware = require("../middleware/cache");
+
 
 // @route   POST /api/admin/colleges
 router.post("/colleges", protect, requireRole("superadmin"), async (req, res) => {
@@ -58,6 +60,7 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
     });
 
     const setupToken = crypto.randomBytes(20).toString("hex");
+    const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     const dummyHash = crypto.randomBytes(16).toString("hex");
 
     const adminUser = await User.create({
@@ -67,7 +70,8 @@ router.post("/colleges", protect, requireRole("superadmin"), async (req, res) =>
       role: "admin",
       collegeId: college._id,
       isSetup: false,
-      setupToken
+      setupToken,
+      setupTokenExpiresAt
     });
 
     const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
@@ -101,6 +105,21 @@ router.put("/colleges/:id/upgrade", protect, requireRole("superadmin"), async (r
       update, 
       { new: true }
     );
+    if (!college) return res.status(404).json({ error: "College not found" });
+
+    // Clear tenant settings / college details cache
+    cacheMiddleware.clearCache(req.params.id);
+
+    // Propagate role changes to coordinators of this college
+    if (licenceStatus !== undefined) {
+      const User = require("../models/User");
+      const subRole = licenceStatus === "paid" ? "coordinator_paid" : "coordinator_free";
+      await User.updateMany(
+        { collegeId: req.params.id, role: "coordinator" },
+        { subRole }
+      );
+    }
+
     res.json(college);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -169,6 +188,9 @@ router.post("/upgrade-simulation", protect, requireRole("superadmin", "admin"), 
     college.licenceStatus = "paid";
     await college.save();
 
+    // Clear cache for settings / college config
+    cacheMiddleware.clearCache(college._id);
+
     // Dynamically upgrade all coordinators of this college to paid subRole
     await User.updateMany(
       { collegeId: college._id, role: "coordinator" },
@@ -233,6 +255,7 @@ router.post("/coordinators", protect, requireRole("admin"), async (req, res) => 
     }
 
     const setupToken = crypto.randomBytes(20).toString("hex");
+    const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     const dummyHash = crypto.randomBytes(16).toString("hex");
 
     const coordinator = await User.create({
@@ -243,7 +266,8 @@ router.post("/coordinators", protect, requireRole("admin"), async (req, res) => 
       subRole: college.licenceStatus === "paid" ? "coordinator_paid" : "coordinator_free",
       collegeId: adminUser.collegeId,
       isSetup: false,
-      setupToken
+      setupToken,
+      setupTokenExpiresAt
     });
 
     const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
@@ -280,6 +304,44 @@ router.get("/coordinators", protect, requireRole("admin"), async (req, res) => {
     }).select("name email isSetup setupToken");
 
     res.json(coordinators);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// @route   POST /api/admin/coordinators/:id/regenerate-setup
+// @desc    Regenerate setup link for a pending coordinator
+router.post("/coordinators/:id/regenerate-setup", protect, requireRole("admin"), async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const adminUser = await User.findById(req.user.id);
+    if (!adminUser.collegeId) {
+      return res.status(400).json({ error: "Admin does not belong to any college." });
+    }
+
+    const coordinator = await User.findOne({
+      _id: req.params.id,
+      collegeId: adminUser.collegeId,
+      role: "coordinator",
+      isSetup: false
+    });
+
+    if (!coordinator) {
+      return res.status(404).json({ error: "Pending coordinator not found." });
+    }
+
+    const setupToken = crypto.randomBytes(20).toString("hex");
+    const setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    coordinator.setupToken = setupToken;
+    coordinator.setupTokenExpiresAt = setupTokenExpiresAt;
+    await coordinator.save();
+
+    const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
+    const origin = clientOrigin.replace(/\/$/, "");
+    const setupLink = `${origin}/setup-account?email=${encodeURIComponent(coordinator.email)}&token=${setupToken}`;
+
+    res.json({ setupLink });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -324,6 +386,7 @@ router.post("/colleges/:id/regenerate-setup", protect, requireRole("superadmin")
 
     const crypto = require("crypto");
     adminUser.setupToken = crypto.randomBytes(20).toString("hex");
+    adminUser.setupTokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     await adminUser.save();
 
     const clientOrigin = req.headers.origin || req.headers.referer || "http://localhost:3000";
@@ -346,6 +409,9 @@ router.put("/colleges/:id/toggle-active", protect, requireRole("superadmin"), as
     // Toggle isActive field (defaulting to true if not set)
     college.isActive = college.isActive === false ? true : false;
     await college.save();
+
+    // Clear cache for settings / college config
+    cacheMiddleware.clearCache(req.params.id);
 
     res.json({ 
       message: `College status updated to ${college.isActive ? "active" : "deactivated"}.`, 

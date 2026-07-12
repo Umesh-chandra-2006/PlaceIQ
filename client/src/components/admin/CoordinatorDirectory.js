@@ -10,7 +10,8 @@ const CoordinatorDirectory = ({
   generatedCoordLink,
   copiedText,
   copyToClipboard,
-  handleCreateCoordinator
+  handleCreateCoordinator,
+  handleRegenerateSetup
 }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -54,22 +55,31 @@ const CoordinatorDirectory = ({
                       </td>
                       <td className="px-4 py-3 text-right">
                         {!coord.isSetup && coord.setupToken ? (
-                          <button 
-                            onClick={() => copyToClipboard(link, coord._id)}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
-                          >
-                            {copiedText === coord._id ? (
-                              <>
-                                <Check size={12} className="text-emerald-400" /> Copied
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={12} /> Copy Link
-                              </>
-                            )}
-                          </button>
+                          <div className="flex justify-end items-center gap-1.5">
+                            <button 
+                              onClick={() => copyToClipboard(link, coord._id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                            >
+                              {copiedText === coord._id ? (
+                                <>
+                                  <Check size={12} className="text-emerald-400" /> Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={12} /> Copy Link
+                                </>
+                              )}
+                            </button>
+                            <button 
+                              onClick={() => handleRegenerateSetup(coord._id)}
+                              className="px-2 py-1 text-xs font-semibold bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded text-zinc-400 hover:text-zinc-200 transition-colors"
+                              title="Regenerate Setup Link"
+                            >
+                              Regen
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-xs text-zinc-500 italic font-semibold">N/A</span>
+                          <span className="text-xs text-zinc-550 italic font-semibold">N/A</span>
                         )}
                       </td>
                     </tr>

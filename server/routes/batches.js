@@ -5,6 +5,7 @@ const { parse } = require("csv-parse");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 
+const College = require("../models/College");
 const Batch = require("../models/Batch");
 const User = require("../models/User");
 const { protect } = require("../middleware/auth");
@@ -132,6 +133,11 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
       try {
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
+        const college = await College.findById(req.user.collegeId);
+        if (!college) {
+          return res.status(404).json({ error: "College not found." });
+        }
+
         const emails = results.map(row => (row.email || row.Email)).filter(Boolean);
         const emailsLower = emails.map(e => e.toLowerCase());
         const existingUsers = await User.find({ email: { $in: emailsLower } });
@@ -151,6 +157,11 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
           const email = row.email || row.Email;
           if (!email) continue;
           const emailLower = email.toLowerCase();
+
+          if (!emailLower.endsWith(`@${college.emailDomain.toLowerCase()}`)) {
+            console.warn(`[DOMAIN PREVENTED] Student ${email} does not belong to college domain ${college.emailDomain}`);
+            continue;
+          }
 
           const existingUser = existingMap.get(emailLower);
           if (existingUser) {

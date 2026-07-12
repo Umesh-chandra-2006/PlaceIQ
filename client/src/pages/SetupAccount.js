@@ -58,18 +58,8 @@ const SetupAccount = () => {
         password
       });
 
-      // Save user credentials and log them in
-      updateUser(data);
-      alert("Account activated successfully!");
-      
-      // Redirect based on role
-      if (data.role === 'superadmin' || data.role === 'admin') {
-        navigate('/admin');
-      } else if (data.role === 'coordinator') {
-        navigate('/coordinator');
-      } else {
-        navigate('/student');
-      }
+      alert("Account activated successfully! Please log in with your new password.");
+      navigate('/login');
     } catch (err) {
       alert(err.response?.data?.error || "Failed to complete account setup.");
     } finally {

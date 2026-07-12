@@ -15,7 +15,6 @@ const AdminApp = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({ departments: [], cgpaScale: 10 });
-  const [deptInput, setDeptInput] = useState("");
   
   // Super Admin state
   const [colleges, setColleges] = useState([]);
@@ -130,10 +129,11 @@ const AdminApp = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (updatedConfig) => {
     setSaving(true);
     try {
-      await axios.put('/admin/college-settings', config);
+      await axios.put('/admin/college-settings', updatedConfig);
+      setConfig(updatedConfig);
       alert("Settings saved successfully.");
     } catch (error) {
       alert("Failed to save settings.");
@@ -183,6 +183,19 @@ const AdminApp = () => {
     }
   };
 
+  const handleRegenerateCoordinatorSetup = async (id) => {
+    if (window.confirm("Regenerate a fresh setup link for this coordinator? The old setup link will expire.")) {
+      try {
+        const { data } = await axios.post(`/admin/coordinators/${id}/regenerate-setup`);
+        setGeneratedCoordLink(data.setupLink);
+        alert("Fresh setup link generated successfully! You can copy it from the generated link box.");
+        fetchCoordinators();
+      } catch (e) {
+        alert(e.response?.data?.error || "Failed to regenerate coordinator setup link.");
+      }
+    }
+  };
+
   const handleUpdateLicence = async (id, status) => {
     try {
       await axios.put(`/admin/colleges/${id}/upgrade`, { licenceStatus: status });
@@ -203,17 +216,6 @@ const AdminApp = () => {
         alert(error.response?.data?.error || "Failed to delete college.");
       }
     }
-  };
-
-  const addDepartment = () => {
-    if (deptInput && !config.departments.includes(deptInput)) {
-      setConfig({ ...config, departments: [...config.departments, deptInput.toUpperCase()] });
-      setDeptInput("");
-    }
-  };
-
-  const removeDepartment = (dept) => {
-    setConfig({ ...config, departments: config.departments.filter(d => d !== dept) });
   };
 
   const copyToClipboard = (text, id) => {
@@ -438,11 +440,6 @@ const AdminApp = () => {
             <Route path="/settings" element={
               <CollegeSettings 
                 config={config}
-                setConfig={setConfig}
-                deptInput={deptInput}
-                setDeptInput={setDeptInput}
-                addDepartment={addDepartment}
-                removeDepartment={removeDepartment}
                 handleSave={handleSave}
                 saving={saving}
               />
@@ -458,6 +455,7 @@ const AdminApp = () => {
                 copiedText={copiedText}
                 copyToClipboard={copyToClipboard}
                 handleCreateCoordinator={handleCreateCoordinator}
+                handleRegenerateSetup={handleRegenerateCoordinatorSetup}
               />
             } />
             <Route path="/profile" element={renderProfile()} />

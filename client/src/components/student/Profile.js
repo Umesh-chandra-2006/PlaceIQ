@@ -411,9 +411,24 @@ const Profile = () => {
                 </div>
               </div>
             </div>
-            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mt-4 border-t border-zinc-850 pt-3">
-              Resets: {profile.aiReviewResetDate && !isNaN(new Date(profile.aiReviewResetDate)) ? new Date(profile.aiReviewResetDate).toLocaleDateString() : 'N/A'}
-            </p>
+            <div className="mt-4 border-t border-zinc-800/60 pt-3 flex justify-between items-center text-[10px] font-mono">
+              <span className="text-zinc-550 uppercase tracking-widest">
+                Resets: {profile.aiReviewResetDate && !isNaN(new Date(profile.aiReviewResetDate)) ? new Date(profile.aiReviewResetDate).toLocaleDateString() : 'N/A'}
+              </span>
+              <button 
+                onClick={async () => {
+                  localStorage.removeItem(`has-completed-tour-student`);
+                  try {
+                    await axios.put('/auth/reset-tour');
+                  } catch (e) {}
+                  alert("Onboarding walkthrough tour reset. Redirecting to job feed...");
+                  window.location.href = '/student';
+                }}
+                className="uppercase font-bold text-primary-500 hover:text-primary-400 transition-colors"
+              >
+                Restart Tour
+              </button>
+            </div>
           </div>
 
           <div className="bg-zinc-900 p-6 rounded-lg border border-zinc-800" id="resume-upload-card">

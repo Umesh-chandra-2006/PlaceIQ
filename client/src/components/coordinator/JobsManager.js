@@ -4,8 +4,11 @@ import JobDetailsDrawer from '../shared/JobDetailsDrawer';
 import Pagination from '../shared/Pagination';
 import { Plus, Search, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const JobsManager = () => {
+  const { user } = useAuth();
+  const isPaid = user?.subRole === 'coordinator_paid';
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -96,10 +99,21 @@ const JobsManager = () => {
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <button 
-          onClick={() => setShowScrapeModal(true)}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 text-sm font-medium rounded transition-colors shadow-lg shadow-indigo-500/20"
+          onClick={() => {
+            if (!isPaid) {
+              alert("Upgrade to Pro plan to access AI-powered job scraping!");
+              return;
+            }
+            setShowScrapeModal(true);
+          }}
+          className={`px-4 py-2 text-sm font-medium rounded transition-colors shadow-lg ${
+            isPaid 
+              ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20' 
+              : 'bg-zinc-800 text-zinc-550 border border-zinc-700 cursor-not-allowed opacity-60'
+          }`}
+          title={isPaid ? "Scrape external jobs via AI" : "AI scraping requires Pro license upgrade"}
         >
-          Scrape External Job
+          Scrape External Job {!isPaid && "🔒"}
         </button>
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" size={14} />
