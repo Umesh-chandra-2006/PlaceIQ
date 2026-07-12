@@ -30,7 +30,7 @@ exports.sendAnnouncementEmail = async (emails, title, content) => {
         </div>
       `
     });
-    console.log(`Email sent via BCC to recipients`);
+    console.log("Email sent via BCC to recipients");
   } catch (error) {
     console.error("Failed to send email", error);
   }
