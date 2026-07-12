@@ -147,6 +147,7 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
         
         const studentsToCreate = [];
         const studentsToAddToBatch = [];
+        let domainMismatchCount = 0;
 
         // Track custom password hashes to execute them in parallel (if any)
         const passwordHashPromises = [];
@@ -160,6 +161,7 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
 
           if (!emailLower.endsWith(`@${college.emailDomain.toLowerCase()}`)) {
             console.warn(`[DOMAIN PREVENTED] Student ${email} does not belong to college domain ${college.emailDomain}`);
+            domainMismatchCount++;
             continue;
           }
 
@@ -227,7 +229,12 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
 
         await batch.save();
         await logAudit(req, "IMPORT_STUDENTS", "Batch", batch._id, { count: newStudentsAdded.length });
-        res.json({ message: `Imported ${newStudentsAdded.length} students`, students: newStudentsAdded });
+        
+        let message = `Imported ${newStudentsAdded.length} students`;
+        if (domainMismatchCount > 0) {
+          message += ` (${domainMismatchCount} skipped due to email domain mismatch)`;
+        }
+        res.json({ message, students: newStudentsAdded });
       } catch (err) {
         console.error("Error processing CSV records:", err);
         if (!res.headersSent) {

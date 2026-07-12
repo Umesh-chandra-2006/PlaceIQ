@@ -43,8 +43,25 @@ const AdminApp = () => {
   // Clipboard feedback
   const [copiedText, setCopiedText] = useState('');
 
-  // Active dropdown row for colleges list
   const [activeDropdown, setActiveDropdown] = useState(null);
+
+  // Close active dropdown on scroll or click outside
+  useEffect(() => {
+    if (!activeDropdown) return;
+    
+    const handleClose = (e) => {
+      if (e.type === 'scroll' || !e.target.closest('.relative.flex.justify-end')) {
+        setActiveDropdown(null);
+      }
+    };
+
+    window.addEventListener('scroll', handleClose, true);
+    window.addEventListener('click', handleClose, true);
+    return () => {
+      window.removeEventListener('scroll', handleClose, true);
+      window.removeEventListener('click', handleClose, true);
+    };
+  }, [activeDropdown]);
 
   const [college, setCollege] = useState(null);
   const [upgradingCollege, setUpgradingCollege] = useState(false);
@@ -319,10 +336,8 @@ const AdminApp = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-550">Licence Status:</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  isPaid ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-800 text-zinc-400'
-                }`}>
-                  {isPaid ? 'Active Tier' : 'Sandbox (Free)'}
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Active
                 </span>
               </div>
             </div>
