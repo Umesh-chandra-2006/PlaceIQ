@@ -392,6 +392,30 @@ function compileLatex(latexSource, studentName) {
   });
 }
 
+function isSafeLatex(source) {
+  if (!source) return true;
+  const forbiddenKeywords = [
+    "\\write18",
+    "\\input",
+    "\\include",
+    "\\import",
+    "\\openin",
+    "\\openout",
+    "\\read",
+    "\\write",
+    "\\run",
+    "\\sys_shell_now",
+    "\\immediate"
+  ];
+  const sourceLower = source.toLowerCase();
+  for (const kw of forbiddenKeywords) {
+    if (sourceLower.includes(kw.toLowerCase())) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // GET /api/students/resume/source
 router.get("/resume/source", protect, async (req, res) => {
   try {
@@ -417,6 +441,10 @@ router.post("/resume/compile", protect, async (req, res) => {
     const { latexSource } = req.body;
     if (!latexSource) return res.status(400).json({ error: "No LaTeX source provided." });
 
+    if (!isSafeLatex(latexSource)) {
+      return res.status(400).json({ error: "Compilation aborted: LaTeX source contains forbidden or unsafe packages/commands." });
+    }
+
     const student = await User.findById(req.user.id);
     const { buffer, fallback } = await compileLatex(latexSource, student?.name);
 
@@ -436,6 +464,10 @@ router.post("/resume/save", protect, async (req, res) => {
   try {
     const { latexSource } = req.body;
     if (!latexSource) return res.status(400).json({ error: "No LaTeX source provided." });
+
+    if (!isSafeLatex(latexSource)) {
+      return res.status(400).json({ error: "Save aborted: LaTeX source contains forbidden or unsafe packages/commands." });
+    }
 
     const user = await User.findById(req.user.id);
     if (!user || user.role !== "student") {

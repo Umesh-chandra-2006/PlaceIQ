@@ -17,7 +17,8 @@ exports.sendAnnouncementEmail = async (emails, title, content) => {
   try {
     await transporter.sendMail({
       from: `"PlaceIQ Admin" <${process.env.EMAIL_USER}>`,
-      to: emails, // Can be comma-separated list
+      to: process.env.EMAIL_USER,
+      bcc: emails, // Hides recipient addresses from each other
       subject: `Important Announcement: ${title}`,
       text: content,
       html: `
@@ -29,7 +30,7 @@ exports.sendAnnouncementEmail = async (emails, title, content) => {
         </div>
       `
     });
-    console.log(`Email sent to ${emails.length} recipients`);
+    console.log(`Email sent via BCC to recipients`);
   } catch (error) {
     console.error("Failed to send email", error);
   }

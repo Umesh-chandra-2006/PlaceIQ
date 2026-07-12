@@ -132,26 +132,44 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
       try {
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-        const newStudents = [];
-        for (const row of results) {
+        const emails = results.map(row => (row.email || row.Email)).filter(Boolean);
+        const emailsLower = emails.map(e => e.toLowerCase());
+        const existingUsers = await User.find({ email: { $in: emailsLower } });
+        const existingMap = new Map(existingUsers.map(u => [u.email.toLowerCase(), u]));
+
+        const defaultHash = await bcrypt.hash("student123", 10);
+        
+        const studentsToCreate = [];
+        const studentsToAddToBatch = [];
+
+        // Track custom password hashes to execute them in parallel (if any)
+        const passwordHashPromises = [];
+        const rowIndexesWithCustomPassword = [];
+
+        for (let i = 0; i < results.length; i++) {
+          const row = results[i];
           const email = row.email || row.Email;
           if (!email) continue;
-          
-          let user = await User.findOne({ email });
-          if (user) {
-            // Prevent cross-tenant/college hijacking: check collegeId match
-            if (user.collegeId.toString() !== req.user.collegeId.toString()) {
-              console.warn(`[HIJACK PREVENTED] Student ${email} belongs to college ${user.collegeId}, but coordinator is from college ${req.user.collegeId}`);
-              continue; // skip this user
-            }
-          }
+          const emailLower = email.toLowerCase();
 
-          if (!user) {
-            const passwordHash = await bcrypt.hash(row.password || "student123", 10);
-            user = await User.create({
+          const existingUser = existingMap.get(emailLower);
+          if (existingUser) {
+            if (existingUser.collegeId.toString() !== req.user.collegeId.toString()) {
+              console.warn(`[HIJACK PREVENTED] Student ${email} belongs to college ${existingUser.collegeId}, but coordinator is from college ${req.user.collegeId}`);
+              continue;
+            }
+            studentsToAddToBatch.push(existingUser);
+          } else {
+            const customPass = row.password || row.Password;
+            if (customPass && customPass !== "student123") {
+              passwordHashPromises.push(bcrypt.hash(customPass, 10));
+              rowIndexesWithCustomPassword.push(studentsToCreate.length); // track index in studentsToCreate
+            }
+            
+            studentsToCreate.push({
               name: row.name || row.Name,
               email: email,
-              passwordHash,
+              passwordHash: defaultHash, // default hash for now, updated later if custom
               role: "student",
               isSetup: true,
               collegeId: req.user.collegeId,
@@ -168,14 +186,37 @@ router.post("/:id/students", protect, requireRole("coordinator"), upload.single(
               phone: row.phone || row.Phone || ""
             });
           }
-          if (!batch.studentIds.includes(user._id)) {
-            batch.studentIds.push(user._id);
-            newStudents.push(user);
+        }
+
+        // Resolve custom password hashes in parallel
+        if (passwordHashPromises.length > 0) {
+          const customHashes = await Promise.all(passwordHashPromises);
+          for (let i = 0; i < customHashes.length; i++) {
+            const createIndex = rowIndexesWithCustomPassword[i];
+            studentsToCreate[createIndex].passwordHash = customHashes[i];
           }
         }
+
+        // Bulk insert new students
+        let createdUsers = [];
+        if (studentsToCreate.length > 0) {
+          createdUsers = await User.insertMany(studentsToCreate);
+        }
+
+        // Merge existing and created students
+        const allStudents = [...studentsToAddToBatch, ...createdUsers];
+        const newStudentsAdded = [];
+
+        for (const student of allStudents) {
+          if (!batch.studentIds.some(sid => sid.toString() === student._id.toString())) {
+            batch.studentIds.push(student._id);
+            newStudentsAdded.push(student);
+          }
+        }
+
         await batch.save();
-        await logAudit(req, "IMPORT_STUDENTS", "Batch", batch._id, { count: newStudents.length });
-        res.json({ message: `Imported ${newStudents.length} students`, students: newStudents });
+        await logAudit(req, "IMPORT_STUDENTS", "Batch", batch._id, { count: newStudentsAdded.length });
+        res.json({ message: `Imported ${newStudentsAdded.length} students`, students: newStudentsAdded });
       } catch (err) {
         console.error("Error processing CSV records:", err);
         if (!res.headersSent) {

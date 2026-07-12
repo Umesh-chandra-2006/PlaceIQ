@@ -42,5 +42,6 @@ const applicationSchema = new mongoose.Schema({
 applicationSchema.index({ studentId: 1 });
 applicationSchema.index({ jobId: 1 });
 applicationSchema.index({ collegeId: 1, stage: 1 });
+applicationSchema.index({ studentId: 1, jobId: 1 }, { unique: true });
 
 module.exports = mongoose.model("Application", applicationSchema);

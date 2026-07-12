@@ -399,8 +399,16 @@ const JobsManager = () => {
                           setShowScrapeModal(false);
                           setScrapedData(null);
                           setScrapeUrl('');
-                          const { data } = await axios.get('/jobs');
-                          setJobs(data);
+                          const { data } = await axios.get(`/jobs?search=${search}&page=${page}&limit=${limit}`);
+                          if (data && data.data) {
+                            setJobs(data.data);
+                            setTotalPages(data.pages || 1);
+                            setTotalJobs(data.total || 0);
+                          } else {
+                            setJobs(Array.isArray(data) ? data : []);
+                            setTotalPages(1);
+                            setTotalJobs(Array.isArray(data) ? data.length : 0);
+                          }
                         } catch (err) {
                           alert('Failed to publish: ' + (err.response?.data?.error || err.message));
                         } finally {

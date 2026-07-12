@@ -26,7 +26,8 @@ const Dashboard = () => {
         };
 
         const jobsRes = await axios.get('/jobs');
-        const activeJobsCount = jobsRes.data.filter(j => j.status === 'active').length;
+        const activeJobs = jobsRes.data && jobsRes.data.data ? jobsRes.data.data : (Array.isArray(jobsRes.data) ? jobsRes.data : []);
+        const activeJobsCount = activeJobs.filter(j => j.status === 'active').length;
 
         try {
           const { data } = await axios.get('/analytics/overview');
@@ -41,7 +42,7 @@ const Dashboard = () => {
             activeJobs: activeJobsCount
           }));
         }
-        processJobsForDeadlines(jobsRes.data);
+        processJobsForDeadlines(activeJobs);
       } catch (error) {
         console.error("Error fetching dashboard stats", error);
       }

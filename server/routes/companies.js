@@ -42,6 +42,8 @@ router.post("/", protect, requireRole("coordinator"), async (req, res) => {
       ...req.body,
       collegeId: req.user.collegeId
     });
+    // Evict cached company listings for this tenant
+    cacheMiddleware.clearCache(req.user.collegeId);
     res.status(201).json(company);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -89,6 +91,8 @@ router.put("/:id", protect, requireRole("coordinator"), async (req, res) => {
     });
 
     await company.save();
+    // Evict cached company listings for this tenant
+    cacheMiddleware.clearCache(req.user.collegeId);
     res.json(company);
   } catch (error) {
     console.error("Error updating company:", error);

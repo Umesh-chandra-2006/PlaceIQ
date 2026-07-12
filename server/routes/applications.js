@@ -84,6 +84,9 @@ router.post("/", protect, enforceOnboarding, requireRole("student"), async (req,
 
     res.status(201).json(app);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Already applied" });
+    }
     console.error("API Error:", error);
     res.status(500).json({ error: "An internal server error occurred" });
   }

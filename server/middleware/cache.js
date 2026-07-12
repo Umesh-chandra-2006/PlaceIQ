@@ -27,4 +27,19 @@ const cacheMiddleware = (ttlSeconds = 300) => (req, res, next) => {
   next();
 };
 
+const clearCache = (tenantId) => {
+  if (!tenantId) {
+    cache.clear();
+    return;
+  }
+  const tenantStr = tenantId.toString();
+  for (const key of cache.keys()) {
+    if (key.startsWith(`${tenantStr}-`)) {
+      cache.delete(key);
+    }
+  }
+};
+
+cacheMiddleware.clearCache = clearCache;
+
 module.exports = cacheMiddleware;

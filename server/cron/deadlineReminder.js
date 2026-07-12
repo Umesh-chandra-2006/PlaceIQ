@@ -1,11 +1,14 @@
 /**
- * Cron job to send deadline reminders to students.
+ * Cron job to send deadline reminders to eligible students who haven't applied.
  * Runs daily at 8:00 AM.
  */
 const cron = require("node-cron");
 const Job = require("../models/Job");
 const Application = require("../models/Application");
+const User = require("../models/User");
+const Batch = require("../models/Batch");
 const { sendEmail } = require("../services/notify");
+const { isEligible } = require("../services/eligibility");
 
 const setupDeadlineReminders = () => {
   cron.schedule("0 8 * * *", async () => {
@@ -19,30 +22,55 @@ const setupDeadlineReminders = () => {
 
       const Notification = require("../models/Notification");
       for (const job of jobs) {
-        const applications = await Application.find({ jobId: job._id })
-          .populate("studentId", "email name");
+        // 1. Get all students who already applied to this job
+        const appliedStudentIds = await Application.find({ jobId: job._id }).distinct("studentId");
 
-        for (const app of applications) {
-          if (!app.studentId) continue;
+        // 2. Get all active students in the college who haven't applied yet
+        const unappliedStudents = await User.find({
+          collegeId: job.collegeId,
+          role: "student",
+          isActive: { $ne: false },
+          _id: { $nin: appliedStudentIds }
+        });
+
+        if (unappliedStudents.length === 0) continue;
+
+        // 3. Map student IDs to batch IDs to optimize check
+        const batches = await Batch.find({ collegeId: job.collegeId });
+        const studentBatchMap = new Map();
+        for (const batch of batches) {
+          for (const sid of batch.studentIds || []) {
+            const sidStr = sid.toString();
+            if (!studentBatchMap.has(sidStr)) {
+              studentBatchMap.set(sidStr, []);
+            }
+            studentBatchMap.get(sidStr).push(batch._id);
+          }
+        }
+
+        // 4. Send reminders to eligible candidates
+        for (const student of unappliedStudents) {
+          const studentBatchIds = studentBatchMap.get(student._id.toString()) || [];
+          if (!isEligible(student, job, studentBatchIds)) continue;
 
           const title = `Deadline approaching: ${job.company}`;
           
           // Prevent duplicates (sent in the last 24 hours)
           const alreadySent = await Notification.findOne({
-            userId: app.studentId._id,
+            userId: student._id,
             title: title,
             createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
           });
           if (alreadySent) continue;
 
           const subject = `Reminder: Deadline approaching for ${job.company}`;
-          const text = `Hi ${app.studentId.name}, the deadline for ${job.title} at ${job.company} is approaching on ${job.deadline.toDateString()}.`;
+          const text = `Hi ${student.name}, the deadline to apply for ${job.title} at ${job.company} is approaching on ${job.deadline.toDateString()}. Make sure to apply on time!`;
           
-          await sendEmail(app.studentId.email, subject, text);
+          await sendEmail(student.email, subject, text);
 
           // Log in DB to prevent duplicate and show in dashboard
           await Notification.create({
-            userId: app.studentId._id,
+            userId: student._id,
             collegeId: job.collegeId,
             title: title,
             message: text,
