@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
-import { useAuth } from '../context/AuthContext';
 import { Loader2, ShieldCheck, Key, AlertCircle } from 'lucide-react';
 
 const SetupAccount = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
   
   const email = searchParams.get('email');
   const token = searchParams.get('token');
@@ -52,7 +50,7 @@ const SetupAccount = () => {
 
     setSubmitting(true);
     try {
-      const { data } = await axios.post('/auth/setup-complete', {
+      await axios.post('/auth/setup-complete', {
         email,
         token,
         password

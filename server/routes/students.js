@@ -220,7 +220,15 @@ router.put("/profile", protect, enforceOnboarding, async (req, res) => {
       user.skills = typeof skills === "string" ? skills.split(",").map(s => s.trim()).filter(Boolean) : skills;
     }
 
-    if (phone !== undefined) user.phone = phone;
+    if (phone !== undefined && phone !== null && phone !== "") {
+      const cleanPhone = String(phone).replace(/[\s-()+]/g, "");
+      if (!/^\d{10}$/.test(cleanPhone)) {
+        return res.status(400).json({ error: "Phone number must be exactly 10 digits." });
+      }
+      user.phone = cleanPhone;
+    } else if (phone === "") {
+      user.phone = "";
+    }
 
     await user.save();
     

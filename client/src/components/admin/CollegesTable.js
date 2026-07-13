@@ -78,9 +78,7 @@ const CollegesTable = ({
                         </button>
                         {activeDropdown === col._id && (
                           <div 
-                            onWheel={(e) => e.stopPropagation()}
-                            onTouchMove={(e) => e.stopPropagation()}
-                            className="absolute right-0 mt-8 w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl z-30 py-1 text-left font-sans text-xs animate-fadeIn select-none max-h-60 overflow-y-auto overscroll-contain"
+                            className="absolute right-0 mt-8 w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl z-30 py-1 text-left font-sans text-xs animate-fadeIn select-none"
                           >
                             {!col.isAdminSetup && (
                               <>

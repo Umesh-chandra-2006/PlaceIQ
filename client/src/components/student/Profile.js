@@ -71,6 +71,11 @@ const Profile = () => {
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
+    const cleanPhone = formData.phone.replace(/[\s-()+]/g, "");
+    if (cleanPhone && !/^\d{10}$/.test(cleanPhone)) {
+      alert("Phone number must be exactly 10 digits.");
+      return;
+    }
     setSavingProfile(true);
     try {
       const payload = {

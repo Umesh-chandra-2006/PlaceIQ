@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutDashboard, Briefcase, Users, Megaphone, BarChart3, 
   LogOut, CheckCircle, User, Sliders, Shield, Menu, X, Building, Bell,
-  PanelLeftClose, PanelLeftOpen, HelpCircle, Sun, Moon, FileText
+  PanelLeftClose, PanelLeftOpen, Sun, Moon, FileText
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 

@@ -1082,29 +1082,44 @@ const ResumeBuilder = () => {
     <div className="h-auto lg:h-[calc(100vh-10.5rem)] flex flex-col gap-4 text-zinc-100">
       
       {/* ── Top Dashboard Header ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/40 p-4 border border-zinc-800/80 rounded-xl">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary-500/10 rounded-lg text-primary-500">
-            <FileSignature size={20} />
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-zinc-950 via-zinc-900/30 to-zinc-950 p-5 border border-zinc-800 rounded-2xl shadow-2xl relative overflow-hidden">
+        {/* Glow decoration */}
+        <div className="absolute top-0 right-1/4 w-32 h-32 bg-primary-500/5 blur-3xl pointer-events-none rounded-full" />
+        <div className="absolute bottom-0 left-1/3 w-24 h-24 bg-indigo-500/5 blur-2xl pointer-events-none rounded-full" />
+        
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-primary-500/20 to-indigo-500/10 rounded-xl text-primary-400 border border-primary-500/20 shadow-lg shadow-primary-500/5">
+            <FileSignature size={22} className="animate-pulse" />
           </div>
           <div>
-            <h1 className="font-semibold text-zinc-200">Interactive Resume Workspace</h1>
-            <p className="text-xs text-zinc-500">Separates text content from LaTeX quality templates client-side.</p>
+            <h1 className="font-bold text-zinc-100 tracking-tight text-base flex items-center gap-1.5">
+              Interactive Resume Workspace
+              <span className="text-[9px] font-mono font-bold tracking-widest text-primary-400 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded-full uppercase">PRO</span>
+            </h1>
+            <p className="text-xs text-zinc-450 mt-0.5">Build premium LaTeX resumes live using modular form sections.</p>
           </div>
         </div>
 
         {/* Tab Selector Toggle */}
-        <div className="flex bg-zinc-950 p-1 border border-zinc-850 rounded-lg">
+        <div className="flex bg-zinc-950/80 p-1 border border-zinc-800 rounded-xl shadow-inner backdrop-blur-sm">
           <button
             onClick={() => setActiveMode('form')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${activeMode === 'form' ? 'bg-zinc-850 text-primary-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 ${
+              activeMode === 'form' 
+                ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary-500/20 scale-[1.02]' 
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
           >
             <GraduationCap size={14} />
             Form Builder
           </button>
           <button
             onClick={() => setActiveMode('code')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all ${activeMode === 'code' ? 'bg-zinc-850 text-primary-400' : 'text-zinc-400 hover:text-zinc-200'}`}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 ${
+              activeMode === 'code' 
+                ? 'bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-md shadow-primary-500/20 scale-[1.02]' 
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
           >
             <Code size={14} />
             Advanced LaTeX
@@ -1151,33 +1166,39 @@ const ResumeBuilder = () => {
                 return (
                   <div 
                     key={sec.id} 
-                    className={`border rounded-xl transition-all overflow-hidden ${
+                    className={`border rounded-2xl transition-all duration-300 overflow-hidden ${
                       isOpen 
-                        ? 'bg-zinc-950 border-primary-500/40 shadow-md shadow-primary-500/2' 
-                        : 'bg-zinc-900/30 border-zinc-850 hover:border-zinc-800'
+                        ? 'bg-zinc-950/80 border-primary-500/60 shadow-lg shadow-primary-500/5 ring-1 ring-primary-500/15' 
+                        : 'bg-zinc-900/20 border-zinc-850/80 hover:border-zinc-800 hover:bg-zinc-900/40'
                     }`}
                   >
                     {/* Header bar button */}
                     <button
                       onClick={() => setActiveSection(isOpen ? null : sec.id)}
-                      className="w-full flex items-center justify-between px-4 py-3.5 text-left transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-4 text-left transition-colors duration-300"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className={`p-1.5 rounded-lg ${isOpen ? 'bg-primary-500/10 text-primary-400' : 'bg-zinc-950 text-zinc-550'}`}>
-                          <Icon size={14} />
+                      <div className="flex items-center gap-3">
+                        <span className={`p-2 rounded-xl transition-all duration-300 ${
+                          isOpen 
+                            ? 'bg-gradient-to-br from-primary-500/25 to-indigo-500/10 text-primary-400 border border-primary-500/20 shadow-md shadow-primary-500/5' 
+                            : 'bg-zinc-950/60 text-zinc-500 border border-zinc-850'
+                        }`}>
+                          <Icon size={15} />
                         </span>
-                        <span className={`text-xs font-semibold ${isOpen ? 'text-zinc-100 font-bold' : 'text-zinc-400'}`}>
+                        <span className={`text-xs font-semibold tracking-wide transition-colors ${
+                          isOpen ? 'text-zinc-100 font-bold' : 'text-zinc-455'
+                        }`}>
                           {sec.name}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         {sec.completed && (
-                          <span className="text-[9px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded flex items-center gap-0.5 select-none">
+                          <span className="text-[9px] font-mono text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-0.5 select-none shadow-sm">
                             ✓ Complete
                           </span>
                         )}
-                        <span className="text-zinc-650 text-[9px] select-none font-mono">
-                          {isOpen ? '▲' : '▼'}
+                        <span className={`text-zinc-650 text-[10px] select-none font-mono transition-transform duration-300 ${isOpen ? 'rotate-180 text-primary-400' : 'rotate-0 text-zinc-550'}`}>
+                          ▼
                         </span>
                       </div>
                     </button>
