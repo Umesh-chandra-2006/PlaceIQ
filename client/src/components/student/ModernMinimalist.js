@@ -1,85 +1,6 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 30,
-    fontFamily: 'Helvetica',
-    fontSize: 9,
-    color: '#1f2937',
-    lineHeight: 1.25
-  },
-  headerContainer: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#0ea5e9', // Sky blue modern accent
-    paddingBottom: 8,
-    marginBottom: 12
-  },
-  name: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#0ea5e9',
-    marginBottom: 2
-  },
-  contactDetails: {
-    fontSize: 8,
-    color: '#4b5563',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6
-  },
-  sectionTitle: {
-    fontSize: 9.5,
-    fontWeight: 'bold',
-    color: '#0ea5e9',
-    letterSpacing: 0.5,
-    marginTop: 12,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    backgroundColor: '#f0f9ff',
-    paddingHorizontal: 4,
-    paddingVertical: 2
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 1
-  },
-  boldText: {
-    fontWeight: 'bold',
-    color: '#111827'
-  },
-  italicText: {
-    fontStyle: 'italic',
-    color: '#4b5563'
-  },
-  bulletsContainer: {
-    marginLeft: 8,
-    marginTop: 1.5,
-    marginBottom: 4
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 1.5
-  },
-  bulletPoint: {
-    width: 6,
-    fontSize: 9,
-    color: '#0ea5e9'
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 8.5,
-    color: '#374151',
-    textAlign: 'justify'
-  },
-  skillsRow: {
-    flexDirection: 'row',
-    marginBottom: 2
-  }
-});
-
 const isStandardJsonResume = (data) => {
   return data && data.basics && data.work && Array.isArray(data.skills);
 };
@@ -163,15 +84,122 @@ const convertToStandardJsonResume = (data) => {
   };
 };
 
-const ModernMinimalist = ({ data }) => {
+const ModernMinimalist = ({ data, styling = {} }) => {
   if (!data) return null;
   const normalized = isStandardJsonResume(data) ? data : convertToStandardJsonResume(data);
   const { basics = {}, education = [], work = [], projects = [], skills = [] } = normalized;
 
+  const fontSize = parseFloat(styling.fontSize || 9);
+  const padding = parseFloat(styling.margins || 30);
+  const lineHeight = parseFloat(styling.lineHeight || 1.25);
+  const fontFamily = styling.fontFamily || 'Helvetica';
+
+  const styles = StyleSheet.create({
+    page: {
+      padding: padding,
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      color: '#1f2937',
+      lineHeight: lineHeight
+    },
+    headerContainer: {
+      borderBottomWidth: 2,
+      borderBottomColor: '#0ea5e9',
+      paddingBottom: 8,
+      marginBottom: 12
+    },
+    name: {
+      fontSize: fontSize + 11,
+      fontWeight: 'bold',
+      color: '#0ea5e9',
+      marginBottom: 2
+    },
+    contactDetails: {
+      fontSize: fontSize - 1,
+      color: '#4b5563',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6
+    },
+    sectionTitle: {
+      fontSize: fontSize + 0.5,
+      fontWeight: 'bold',
+      color: '#0ea5e9',
+      letterSpacing: 0.5,
+      marginTop: 12,
+      marginBottom: 6,
+      textTransform: 'uppercase',
+      backgroundColor: '#f0f9ff',
+      paddingHorizontal: 4,
+      paddingVertical: 2
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 1
+    },
+    boldText: {
+      fontWeight: 'bold',
+      color: '#111827'
+    },
+    italicText: {
+      fontStyle: 'italic',
+      color: '#4b5563'
+    },
+    bulletsContainer: {
+      marginLeft: 8,
+      marginTop: 1.5,
+      marginBottom: 4
+    },
+    bulletRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 1.5
+    },
+    bulletPoint: {
+      width: 6,
+      fontSize: fontSize,
+      color: '#0ea5e9'
+    },
+    bulletText: {
+      flex: 1,
+      fontSize: fontSize - 0.5,
+      color: '#374151',
+      textAlign: 'justify'
+    },
+    skillsRow: {
+      flexDirection: 'row',
+      marginBottom: 2
+    }
+  });
+
+  const cleanSocialUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    const clean = trimmed.toLowerCase();
+    if (
+      clean === 'https://github.com' || 
+      clean === 'https://github.com/' || 
+      clean === 'github.com' || 
+      clean === 'github.com/' ||
+      clean.endsWith('github.com') ||
+      clean.endsWith('github.com/')
+    ) return '';
+    if (
+      clean === 'https://linkedin.com/in' || 
+      clean === 'https://linkedin.com/in/' || 
+      clean === 'linkedin.com/in' || 
+      clean === 'linkedin.com/in/' ||
+      clean.endsWith('linkedin.com/in') ||
+      clean.endsWith('linkedin.com/in/')
+    ) return '';
+    return trimmed;
+  };
+
   const githubProfile = basics.profiles?.find(p => p.network?.toLowerCase() === 'github');
   const linkedinProfile = basics.profiles?.find(p => p.network?.toLowerCase() === 'linkedin');
-  const githubUrl = githubProfile?.url || '';
-  const linkedinUrl = linkedinProfile?.url || '';
+  const githubUrl = cleanSocialUrl(githubProfile?.url || '');
+  const linkedinUrl = cleanSocialUrl(linkedinProfile?.url || '');
   const locationCity = basics.location?.city || '';
 
   const languagesSkill = skills.find(s => s.name?.toLowerCase() === 'languages');

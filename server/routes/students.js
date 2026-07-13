@@ -671,7 +671,7 @@ const convertToStandardJsonResume = (data) => {
 function getDefaultResumeData(user) {
   const name = user.name || "Student Name";
   const email = user.email || "student@college.edu";
-  const phone = user.phone || "+91 9876543210";
+  const phone = user.phone || "";
   const dept = user.department || user.branch || "Computer Science & Engineering";
   const cgpa = user.cgpa ? user.cgpa.toString() : "8.5";
   const tenth = user.tenthPercent ? user.tenthPercent.toString() : "90";
@@ -695,12 +695,12 @@ function getDefaultResumeData(user) {
         {
           network: "GitHub",
           username: "",
-          url: "https://github.com/"
+          url: ""
         },
         {
           network: "LinkedIn",
           username: "",
-          url: "https://linkedin.com/in/"
+          url: ""
         }
       ]
     },

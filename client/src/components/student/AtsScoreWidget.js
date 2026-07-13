@@ -110,6 +110,49 @@ const AtsScoreWidget = ({ resumeText }) => {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (displayScore / 100) * circumference;
 
+  const getActionableFeedback = () => {
+    if (!resumeText || atsData.score === 0) {
+      return "Fill out the Form Builder sections or compile custom LaTeX source code to analyze your resume's ATS health metrics.";
+    }
+
+    if (atsData.score >= 85) {
+      return "Excellent alignment! Your resume shows high keyword coverage and strong formatting. Perfect for placement listings.";
+    }
+
+    // Check if missing target keywords
+    if (atsData.missingKeywords && atsData.missingKeywords.length > 0) {
+      const topMissing = atsData.missingKeywords.slice(0, 3).map(k => `"${k}"`).join(', ');
+      if (selectedJobId) {
+        return `Missing target keywords: ${topMissing}. Tailor your summary or experience bullet points to integrate these keywords.`;
+      } else {
+        return `Try adding important technical skills like ${topMissing} to your Skills section to build general search visibility.`;
+      }
+    }
+
+    // Fallback on health insights warnings
+    if (atsData.healthInsights && atsData.healthInsights.length > 0) {
+      const warnings = atsData.healthInsights.filter(insight => insight.type === 'warning');
+      if (warnings.length > 0) {
+        return warnings[0].message;
+      }
+    }
+
+    // Check specific breakdowns
+    if (atsData.breakdown) {
+      if ((atsData.breakdown.experience || 0) < 60) {
+        return "Experience score is low. Describe achievements using action verbs (e.g., 'optimized', 'architected') and quantitative results.";
+      }
+      if ((atsData.breakdown.projects || 0) < 60) {
+        return "Improve projects impact score. Clearly state technologies used and quantify project deliverables.";
+      }
+      if ((atsData.breakdown.formatting || 0) < 70) {
+        return "Formatting issues detected. Verify your email, phone, and complete LinkedIn/GitHub profile URLs are correct.";
+      }
+    }
+
+    return "Optimize your resume score by adding more specific skills, project descriptions, and quantifying your work metrics.";
+  };
+
   return (
     <div className="bg-zinc-900/40 p-5 border border-zinc-800 rounded-xl space-y-5">
       {/* Header */}
@@ -163,10 +206,7 @@ const AtsScoreWidget = ({ resumeText }) => {
             </span>
           </div>
           <p className="text-[10px] text-zinc-400 leading-relaxed">
-            {selectedJobId 
-              ? 'Real-time keyword check against the active placement description details.'
-              : 'Add your skills, experience, and projects to increase your general ATS readability score.'
-            }
+            {getActionableFeedback()}
           </p>
         </div>
       </div>

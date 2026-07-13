@@ -191,7 +191,7 @@ router.post("/scrape", protect, requireRole("coordinator"), requirePaid, async (
     res.json(scrapedData);
   } catch (error) {
     console.error("API Error:", error);
-    res.status(500).json({ error: "An internal server error occurred" });
+    res.status(500).json({ error: error.message || "An internal server error occurred" });
   }
 });
 

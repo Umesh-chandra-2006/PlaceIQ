@@ -6,7 +6,7 @@ const axios = require("axios");
 
 async function scrapeUnstop(url) {
   try {
-    const scraperUrl = process.env.SCRAPER_SERVICE_URL || "http://localhost:8000";
+    const scraperUrl = process.env.SCRAPER_SERVICE_URL || "http://127.0.0.1:8000";
 
     // Call the Python FastAPI microservice (up to 120s for Playwright + LLM)
     const { data } = await axios.post(`${scraperUrl}/scrape`, { url }, { timeout: 120000 });
@@ -59,8 +59,9 @@ async function scrapeUnstop(url) {
       }
     };
   } catch (error) {
-    console.error("Scraping Microservice failed:", error.message);
-    throw new Error("Scraping failed: " + error.message);
+    const errorMsg = error.response?.data?.detail || error.response?.data?.error || error.message;
+    console.error("Scraping Microservice failed:", errorMsg);
+    throw new Error("Scraping failed: " + errorMsg);
   }
 }
 

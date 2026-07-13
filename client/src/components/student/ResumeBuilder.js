@@ -125,6 +125,12 @@ const ResumeBuilder = () => {
   const [optimizing, setOptimizing] = useState(false);
   const [optimizedDraft, setOptimizedDraft] = useState(null);
   const [showDiffModal, setShowDiffModal] = useState(false);
+  const [styling, setStyling] = useState({
+    fontSize: '9.5',
+    margins: '35',
+    lineHeight: '1.3',
+    fontFamily: 'Times-Roman'
+  });
 
   const textareaRef = useRef(null);
   const autoSaveTimerRef = useRef(null);
@@ -1079,7 +1085,7 @@ const ResumeBuilder = () => {
   const ActiveTemplate = templates[selectedTemplate]?.component || JakesTemplate;
 
   return (
-    <div className="h-auto lg:h-[calc(100vh-10.5rem)] flex flex-col gap-4 text-zinc-100">
+    <div className="h-auto lg:h-[calc(100vh-7.5rem)] flex flex-col gap-4 text-zinc-100">
       
       {/* ── Top Dashboard Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-zinc-950 via-zinc-900/30 to-zinc-950 p-5 border border-zinc-800 rounded-2xl shadow-2xl relative overflow-hidden">
@@ -1092,11 +1098,22 @@ const ResumeBuilder = () => {
             <FileSignature size={22} className="animate-pulse" />
           </div>
           <div>
-            <h1 className="font-bold text-zinc-100 tracking-tight text-base flex items-center gap-1.5">
+            <h1 className="font-bold text-zinc-100 tracking-tight text-base flex items-center gap-2">
               Interactive Resume Workspace
-              <span className="text-[9px] font-mono font-bold tracking-widest text-primary-400 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded-full uppercase">PRO</span>
+              <div className="relative group flex items-center">
+                <span className="text-[9px] font-mono font-bold tracking-widest text-primary-400 bg-primary-500/10 border border-primary-500/20 px-1.5 py-0.5 rounded-full uppercase cursor-help flex items-center gap-0.5">
+                  PRO <Info size={9} />
+                </span>
+                {/* Tooltip on Hover */}
+                <div className="absolute left-0 top-6 scale-0 transition-all duration-200 group-hover:scale-100 bg-zinc-900 border border-zinc-800 p-3 rounded-xl shadow-2xl text-[10.5px] text-zinc-400 z-50 w-64 leading-normal pointer-events-none">
+                  <div className="font-bold text-zinc-200 mb-1 flex items-center gap-1">
+                    👑 Premium Features Enabled
+                  </div>
+                  Includes advanced LaTeX source editor compile, Claude AI optimizer rewrites, real-time ATS match analyzer, and interactive document styling controls.
+                </div>
+              </div>
             </h1>
-            <p className="text-xs text-zinc-450 mt-0.5">Build premium LaTeX resumes live using modular form sections.</p>
+            <p className="text-xs text-zinc-450 mt-0.5 font-medium">Build premium LaTeX resumes live using modular form sections.</p>
           </div>
         </div>
 
@@ -1122,15 +1139,15 @@ const ResumeBuilder = () => {
             }`}
           >
             <Code size={14} />
-            Advanced LaTeX
+            Advanced LaTeX <span className="text-[8px] font-bold text-primary-400 ml-1">PRO</span>
           </button>
         </div>
       </div>
 
-      {/* ── Workspace ── */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[4fr_6fr] gap-4 lg:overflow-hidden">
+      {/* ── Workspace Refined 3-Pane Layout ── */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-[3.2fr_4.8fr_4fr] gap-4 lg:overflow-hidden">
         
-        {/* Left pane: Active Editor Accordion / LaTeX Code */}
+        {/* Pane 1 (Left): Form Inputs / LaTeX Code Editor */}
         <div className="flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl lg:overflow-y-auto shadow-xl lg:h-full">
           {activeMode === 'form' ? (
             <div className="space-y-3 p-4">
@@ -1147,20 +1164,20 @@ const ResumeBuilder = () => {
                   />
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-855 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
                   >
                     <Upload size={12} /> Import JSON
                   </button>
                   <button
                     onClick={handleExportJson}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-850 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-950 hover:bg-zinc-900 border border-zinc-855 text-zinc-350 hover:text-zinc-200 rounded-lg transition-all"
                   >
                     <Download size={12} /> Export JSON
                   </button>
                 </div>
               </div>
 
-              {sectionsList.map(sec => {
+              {sectionsList.filter(s => s.id !== 'templates' && s.id !== 'ai-optimizer').map(sec => {
                 const Icon = sec.icon;
                 const isOpen = activeSection === sec.id;
                 return (
@@ -1211,8 +1228,6 @@ const ResumeBuilder = () => {
                         {sec.id === 'experience' && renderExperienceForm()}
                         {sec.id === 'projects' && renderProjectsForm()}
                         {sec.id === 'skills' && renderSkillsForm()}
-                        {sec.id === 'templates' && renderTemplateSelector()}
-                        {sec.id === 'ai-optimizer' && renderAiOptimizerForm()}
                       </div>
                     )}
                   </div>
@@ -1265,246 +1280,351 @@ const ResumeBuilder = () => {
           )}
         </div>
 
-        {/* Center/Right pane: PDF preview & widget area */}
-        <div className="flex flex-col gap-4 lg:h-full lg:overflow-hidden">
-          
-          {/* PDF preview container */}
-          <div className="flex-1 flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl min-h-[500px] lg:min-h-0">
-            {activeMode === 'form' ? (
-              <BlobProvider document={<ActiveTemplate data={resumeData} />}>
-                {({ blob, url, loading, error }) => {
-                  if (loading) {
-                    return (
-                      <div className="absolute inset-0 bg-zinc-950/80 flex flex-col items-center justify-center gap-2">
-                        <RefreshCw size={24} className="animate-spin text-primary-500" />
-                        <span className="text-xs text-zinc-400 font-mono">Generating PDF...</span>
-                      </div>
-                    );
-                  }
-                  if (error) {
-                    return (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500 text-xs">
-                        <AlertTriangle size={24} className="text-red-500 mb-2" />
-                        Failed to compile PDF.
-                      </div>
-                    );
-                  }
-
-                  const handleDownload = () => {
-                    if (!url) return;
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `${resumeData.basics?.name || 'Resume'}.pdf`;
-                    link.click();
-                  };
-
+        {/* Pane 2 (Middle): Live PDF Canvas Preview */}
+        <div className="flex flex-col bg-zinc-950 border border-zinc-800/80 rounded-xl overflow-hidden shadow-xl lg:h-full">
+          {activeMode === 'form' ? (
+            <BlobProvider document={<ActiveTemplate data={resumeData} styling={styling} />}>
+              {({ blob, url, loading, error }) => {
+                if (loading) {
                   return (
-                    <div className="w-full h-full flex flex-col">
-                      {/* Premium Viewer Toolbar */}
-                      <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">live_preview.pdf</span>
-                          <span className="text-[9px] text-zinc-650">•</span>
-                          <span className="text-[9px] font-mono text-zinc-550 flex items-center gap-1">
-                            <span className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'Saving...' ? 'bg-amber-500 animate-pulse' : saveStatus === 'Auto-saved' ? 'bg-emerald-500' : 'bg-zinc-650'}`} />
-                            {saveIndicatorText}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {/* Page Count Badge */}
-                          <span className="text-[9px] font-mono px-2 py-0.5 bg-zinc-950 border border-zinc-850 text-zinc-400 rounded-md select-none">
-                            1 Page Template
-                          </span>
-                          <span className="w-[1px] h-3.5 bg-zinc-850 mx-0.5" />
-                          
-                          {/* Zoom Scale Controls */}
-                          <div className="flex items-center gap-1 bg-zinc-950 p-0.5 border border-zinc-850 rounded-lg">
-                            <button 
-                              onClick={() => setZoomScale(prev => Math.max(prev - 0.1, 0.6))}
-                              disabled={zoomScale <= 0.6}
-                              className="p-1 text-zinc-450 hover:text-zinc-200 disabled:opacity-40 rounded"
-                              title="Zoom Out"
-                            >
-                              <ZoomOut size={12} />
-                            </button>
-                            <span className="text-[9px] font-mono px-1.5 text-zinc-400 select-none">{Math.round(zoomScale * 100)}%</span>
-                            <button 
-                              onClick={() => setZoomScale(prev => Math.min(prev + 0.1, 1.5))}
-                              disabled={zoomScale >= 1.5}
-                              className="p-1 text-zinc-450 hover:text-zinc-200 disabled:opacity-40 rounded"
-                              title="Zoom In"
-                            >
-                              <ZoomIn size={12} />
-                            </button>
-                          </div>
-
-                          <span className="w-[1px] h-3.5 bg-zinc-850 mx-0.5" />
-
-                          {/* Action Buttons */}
-                          <button
-                            onClick={handleDownload}
-                            className="p-1.5 bg-zinc-950 border border-zinc-850 hover:border-zinc-800 text-zinc-400 hover:text-zinc-200 rounded-lg"
-                            title="Download PDF"
-                          >
-                            <Download size={13} />
-                          </button>
-                          <button 
-                            onClick={() => setIsFullscreen(prev => !prev)}
-                            className={`p-1.5 border rounded-lg ${isFullscreen ? 'text-primary-400 bg-zinc-900 border-primary-500/20' : 'text-zinc-450 hover:text-zinc-200 bg-zinc-950 border-zinc-850'}`}
-                            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
-                          >
-                            <Maximize size={13} />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* PDF object representation with zoom */}
-                      <div className="flex-1 bg-zinc-900 overflow-auto relative p-2 flex justify-center items-start">
-                        <object 
-                          data={`${url}#toolbar=0&navpanes=0&view=FitH`} 
-                          type="application/pdf"
-                          className="border-0 shadow-lg bg-zinc-950"
-                          style={{
-                            width: `${zoomScale * 100}%`,
-                            height: '98%',
-                            minHeight: '450px',
-                            transition: 'width 0.15s ease-out'
-                          }}
-                          aria-label="Structured Resume PDF Preview"
-                        >
-                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-450 text-xs bg-zinc-900">
-                            <FileText size={32} className="text-zinc-700 mb-2" />
-                            <p>PDF preview loaded.</p>
-                            <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
-                              Open PDF in new tab
-                            </a>
-                          </div>
-                        </object>
-                      </div>
-
-                      {/* Instant Save Bar */}
-                      <div className="p-3 bg-zinc-950/90 border-t border-zinc-850 flex justify-between items-center gap-3 shrink-0">
-                        <span className="text-[10px] text-zinc-550 font-mono">PDF compiled client-side instantly.</span>
-                        <button
-                          onClick={() => handleSaveForm(blob)}
-                          disabled={saving}
-                          className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg shadow-lg shadow-primary-500/10 transition-all disabled:opacity-55"
-                        >
-                          {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
-                          Publish & Sync Profile
-                        </button>
-                      </div>
-
-                      {/* Fullscreen Overlay Mode */}
-                      {isFullscreen && (
-                        <div className="fixed inset-0 z-[9999] bg-zinc-950 p-6 flex flex-col gap-4">
-                          <div className="flex justify-between items-center border-b border-zinc-850 pb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-mono uppercase tracking-widest text-zinc-400">fullscreen_preview.pdf</span>
-                              <span className="text-[9px] text-zinc-650 font-mono">|</span>
-                              <span className="text-[10px] text-zinc-500 font-mono">Press ESC to exit</span>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                onClick={handleDownload}
-                                className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-805 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-lg"
-                              >
-                                <Download size={12} /> Download
-                              </button>
-                              <button
-                                onClick={() => setIsFullscreen(false)}
-                                className="px-3 py-1.5 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg"
-                              >
-                                Exit Fullscreen
-                              </button>
-                            </div>
-                          </div>
-                          <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden relative flex justify-center items-start p-4">
-                            <object 
-                              data={`${url}#toolbar=0&navpanes=0&view=FitH`} 
-                              type="application/pdf"
-                              className="h-full w-4/5 border-0 bg-zinc-950 shadow-2xl"
-                              aria-label="Fullscreen Resume Preview"
-                            >
-                              <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 text-xs bg-zinc-900">
-                                <p>Fullscreen preview loaded.</p>
-                                <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2">Open in tab</a>
-                              </div>
-                            </object>
-                          </div>
-                        </div>
-                      )}
+                    <div className="flex-1 bg-zinc-950 flex flex-col items-center justify-center gap-2">
+                      <RefreshCw size={24} className="animate-spin text-primary-500" />
+                      <span className="text-xs text-zinc-400 font-mono">Generating PDF...</span>
                     </div>
                   );
-                }}
-              </BlobProvider>
-            ) : (
-              /* PDF Viewer for custom LaTeX Code Compile */
-              <div className="w-full h-full flex flex-col h-full">
-                <div className="px-4 py-2 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between shrink-0">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">live_preview.pdf</span>
-                  <div className="flex items-center gap-2">
-                    {codeFallback && (
-                      <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">
-                        <AlertTriangle size={10} /> FALLBACK
-                      </span>
+                }
+                if (error) {
+                  return (
+                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 text-xs">
+                      <AlertTriangle size={24} className="text-red-500 mb-2" />
+                      Failed to compile PDF.
+                    </div>
+                  );
+                }
+
+                const handleDownload = () => {
+                  if (!url) return;
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `${resumeData.basics?.name || 'Resume'}.pdf`;
+                  link.click();
+                };
+
+                return (
+                  <div className="w-full h-full flex flex-col">
+                    {/* Premium Viewer Toolbar */}
+                    <div className="px-4 py-2.5 bg-zinc-900/50 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">live_preview.pdf</span>
+                        <span className="text-[9px] text-zinc-650">•</span>
+                        <span className="text-[9px] font-mono text-zinc-550 flex items-center gap-1">
+                          <span className={`w-1.5 h-1.5 rounded-full ${saveStatus === 'Saving...' ? 'bg-amber-500 animate-pulse' : saveStatus === 'Auto-saved' ? 'bg-emerald-500' : 'bg-zinc-650'}`} />
+                          {saveIndicatorText}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* Page Count Badge */}
+                        <span className="text-[9px] font-mono px-2 py-0.5 bg-zinc-950 border border-zinc-850 text-zinc-400 rounded-md select-none">
+                          1 Page Template
+                        </span>
+                        <span className="w-[1px] h-3.5 bg-zinc-850 mx-0.5" />
+                        
+                        {/* Zoom Scale Controls */}
+                        <div className="flex items-center gap-1 bg-zinc-950 p-0.5 border border-zinc-850 rounded-lg">
+                          <button 
+                            onClick={() => setZoomScale(prev => Math.max(prev - 0.1, 0.6))}
+                            disabled={zoomScale <= 0.6}
+                            className="p-1 text-zinc-450 hover:text-zinc-200 disabled:opacity-40 rounded"
+                            title="Zoom Out"
+                          >
+                            <ZoomOut size={12} />
+                          </button>
+                          <span className="text-[9px] font-mono px-1.5 text-zinc-400 select-none">{Math.round(zoomScale * 100)}%</span>
+                          <button 
+                            onClick={() => setZoomScale(prev => Math.min(prev + 0.1, 1.5))}
+                            disabled={zoomScale >= 1.5}
+                            className="p-1 text-zinc-450 hover:text-zinc-200 disabled:opacity-40 rounded"
+                            title="Zoom In"
+                          >
+                            <ZoomIn size={12} />
+                          </button>
+                        </div>
+
+                        <span className="w-[1px] h-3.5 bg-zinc-850 mx-0.5" />
+
+                        {/* Action Buttons */}
+                        <button
+                          onClick={handleDownload}
+                          className="p-1.5 bg-zinc-950 border border-zinc-850 hover:border-zinc-800 text-zinc-400 hover:text-zinc-200 rounded-lg"
+                          title="Download PDF"
+                        >
+                          <Download size={13} />
+                        </button>
+                        <button 
+                          onClick={() => setIsFullscreen(prev => !prev)}
+                          className={`p-1.5 border rounded-lg ${isFullscreen ? 'text-primary-400 bg-zinc-900 border-primary-500/20' : 'text-zinc-455 hover:text-zinc-200 bg-zinc-950 border-zinc-850'}`}
+                          title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Preview"}
+                        >
+                          <Maximize size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* PDF object representation with zoom */}
+                    <div className="flex-1 bg-zinc-900 overflow-auto relative p-4 flex justify-center items-start">
+                      <object 
+                        data={`${url}#toolbar=0&navpanes=0&view=FitH`} 
+                        type="application/pdf"
+                        className="border-0 shadow-2xl bg-zinc-950"
+                        style={{
+                          width: `${zoomScale * 100}%`,
+                          height: '98%',
+                          minHeight: '450px',
+                          transition: 'width 0.15s ease-out'
+                        }}
+                        aria-label="Structured Resume PDF Preview"
+                      >
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-450 text-xs bg-zinc-900">
+                          <FileText size={32} className="text-zinc-700 mb-2" />
+                          <p>PDF preview loaded.</p>
+                          <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
+                            Open PDF in new tab
+                          </a>
+                        </div>
+                      </object>
+                    </div>
+
+                    {/* Instant Save Bar */}
+                    <div className="p-3.5 bg-zinc-950/90 border-t border-zinc-850 flex justify-between items-center gap-3 shrink-0">
+                      <span className="text-[10px] text-zinc-550 font-mono">PDF compiled client-side instantly.</span>
+                      <button
+                        onClick={() => handleSaveForm(blob)}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg shadow-lg shadow-primary-500/10 transition-all disabled:opacity-55"
+                      >
+                        {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+                        Publish & Sync Profile
+                      </button>
+                    </div>
+
+                    {/* Fullscreen Overlay Mode */}
+                    {isFullscreen && (
+                      <div className="fixed inset-0 z-[9999] bg-zinc-950 p-6 flex flex-col gap-4">
+                        <div className="flex justify-between items-center border-b border-zinc-850 pb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono uppercase tracking-widest text-zinc-400">fullscreen_preview.pdf</span>
+                            <span className="text-[9px] text-zinc-650 font-mono">|</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">Press ESC to exit</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={handleDownload}
+                              className="flex items-center gap-1.5 px-3 py-1 bg-zinc-900 hover:bg-zinc-805 border border-zinc-800 text-zinc-200 text-xs font-semibold rounded-lg"
+                            >
+                              <Download size={12} /> Download
+                            </button>
+                            <button
+                              onClick={() => setIsFullscreen(false)}
+                              className="px-3 py-1.5 bg-primary-500 hover:bg-primary-400 text-zinc-950 text-xs font-semibold rounded-lg"
+                            >
+                              Exit Fullscreen
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden relative flex justify-center items-start p-4">
+                          <object 
+                            data={`${url}#toolbar=0&navpanes=0&view=FitH`} 
+                            type="application/pdf"
+                            className="h-full w-4/5 border-0 bg-zinc-950 shadow-2xl"
+                            aria-label="Fullscreen Resume Preview"
+                          >
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-400 text-xs bg-zinc-900">
+                              <p>Fullscreen preview loaded.</p>
+                              <a href={url} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2">Open in tab</a>
+                            </div>
+                          </object>
+                        </div>
+                      </div>
                     )}
+                  </div>
+                );
+              }}
+            </BlobProvider>
+          ) : (
+            /* PDF Viewer for custom LaTeX Code Compile */
+            <div className="w-full h-full flex flex-col h-full">
+              <div className="px-4 py-2.5 bg-zinc-900/50 border-b border-zinc-800/80 flex items-center justify-between shrink-0">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 font-semibold">live_preview.pdf</span>
+                <div className="flex items-center gap-2">
+                  {codeFallback && (
+                    <span className="text-[10px] font-mono text-amber-500 flex items-center gap-1 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">
+                      <AlertTriangle size={10} /> FALLBACK
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 bg-zinc-900 relative h-full">
+                {compilingCode && (
+                  <div className="absolute inset-0 bg-zinc-950/80 flex flex-col items-center justify-center gap-2 z-10">
+                    <RefreshCw size={24} className="animate-spin text-primary-500" />
+                    <span className="text-xs text-zinc-400 font-mono">Compiling LaTeX...</span>
+                  </div>
+                )}
+                {codePdfUrl ? (
+                  <object 
+                    data={`${codePdfUrl}#toolbar=0&navpanes=0&view=FitH`} 
+                    type="application/pdf"
+                    className="w-full h-full border-0 bg-zinc-900"
+                    aria-label="LaTeX Code PDF Preview"
+                  >
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-450 text-xs bg-zinc-900">
+                      <FileText size={32} className="text-zinc-700 mb-2" />
+                      <p>PDF preview loaded.</p>
+                      <a href={codePdfUrl} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
+                        Open PDF in new tab
+                      </a>
+                    </div>
+                  </object>
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-zinc-550 text-xs text-center p-4 min-h-[400px]">
+                    <FileText size={32} className="text-zinc-700 mb-2" />
+                    No LaTeX PDF compiled. Click Compile on the left.
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Pane 3 (Right): ATS scorecard + Template Selection & Styling Controls */}
+        <div className="flex flex-col gap-4 lg:h-full lg:overflow-y-auto pr-1 pb-4">
+          
+          {/* ATS Scorecard Widget */}
+          <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
+
+          {/* Styling & Template Selector Widget */}
+          {activeMode === 'form' ? (
+            <div className="bg-zinc-900/40 p-5 border border-zinc-800 rounded-xl space-y-4 shadow-xl">
+              <div className="border-b border-zinc-850 pb-2.5">
+                <h3 className="text-xs font-semibold text-zinc-350 flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-primary-400" />
+                  Document Styling & Template
+                </h3>
+              </div>
+
+              {/* Template selection cards */}
+              <div className="space-y-2">
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-500">Resume Design Layout</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.values(templates).map(tmpl => (
+                    <button
+                      key={tmpl.id}
+                      onClick={() => {
+                        setSelectedTemplate(tmpl.id);
+                        toast.success(`Switched to ${tmpl.name}!`);
+                      }}
+                      className={`px-3 py-2 text-left rounded-lg border text-xs transition-all flex items-center gap-2 ${
+                        selectedTemplate === tmpl.id 
+                          ? 'bg-zinc-900 border-primary-500 text-primary-400 shadow-md shadow-primary-500/5 font-bold' 
+                          : 'bg-zinc-950 border-zinc-850 text-zinc-400 hover:border-zinc-800 hover:text-zinc-200'
+                      }`}
+                    >
+                      <span className="text-base select-none">{tmpl.thumbnail}</span>
+                      <span className="truncate">{tmpl.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Spacing & Formatting controls */}
+              <div className="space-y-3 pt-2.5 border-t border-zinc-850/60">
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-zinc-500">Fine-tuning Styles</label>
+                
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[10px] text-zinc-450 mb-1">Font Size</label>
+                    <select
+                      value={styling.fontSize}
+                      onChange={e => setStyling(prev => ({ ...prev, fontSize: e.target.value }))}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-300 focus:outline-none focus:border-zinc-700"
+                    >
+                      <option value="8.0">8.0 pt (Ultra Compact)</option>
+                      <option value="8.5">8.5 pt (Compact)</option>
+                      <option value="9.0">9.0 pt (Standard)</option>
+                      <option value="9.5">9.5 pt (Default)</option>
+                      <option value="10.0">10.0 pt (Large)</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-[10px] text-zinc-450 mb-1">Page Margins</label>
+                    <select
+                      value={styling.margins}
+                      onChange={e => setStyling(prev => ({ ...prev, margins: e.target.value }))}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-300 focus:outline-none focus:border-zinc-700"
+                    >
+                      <option value="20">20 pt (Tighter)</option>
+                      <option value="25">25 pt (Narrow)</option>
+                      <option value="30">30 pt (Moderate)</option>
+                      <option value="35">35 pt (Standard)</option>
+                      <option value="42">42 pt (Wide)</option>
+                    </select>
                   </div>
                 </div>
 
-                <div className="flex-1 bg-zinc-900 relative h-full">
-                  {compilingCode && (
-                    <div className="absolute inset-0 bg-zinc-950/80 flex flex-col items-center justify-center gap-2 z-10">
-                      <RefreshCw size={24} className="animate-spin text-primary-500" />
-                      <span className="text-xs text-zinc-400 font-mono">Compiling LaTeX...</span>
-                    </div>
-                  )}
-                  {codePdfUrl ? (
-                    <object 
-                      data={`${codePdfUrl}#toolbar=0&navpanes=0&view=FitH`} 
-                      type="application/pdf"
-                      className="w-full h-full border-0 bg-zinc-900"
-                      aria-label="LaTeX Code PDF Preview"
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[10px] text-zinc-450 mb-1">Line Height</label>
+                    <select
+                      value={styling.lineHeight}
+                      onChange={e => setStyling(prev => ({ ...prev, lineHeight: e.target.value }))}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-300 focus:outline-none focus:border-zinc-700"
                     >
-                      <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center text-zinc-450 text-xs bg-zinc-900">
-                        <FileText size={32} className="text-zinc-700 mb-2" />
-                        <p>PDF preview loaded.</p>
-                        <a href={codePdfUrl} target="_blank" rel="noreferrer" className="text-primary-500 underline mt-2 font-semibold">
-                          Open PDF in new tab
-                        </a>
-                      </div>
-                    </object>
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-zinc-550 text-xs text-center p-4 h-[400px]">
-                      <FileText size={32} className="text-zinc-700 mb-2" />
-                      No LaTeX PDF compiled. Click Compile on the left.
-                    </div>
-                  )}
+                      <option value="1.15">1.15 (Condensed)</option>
+                      <option value="1.2">1.20 (Compact)</option>
+                      <option value="1.25">1.25 (Standard)</option>
+                      <option value="1.3">1.30 (Relaxed)</option>
+                      <option value="1.4">1.40 (Wide)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-zinc-450 mb-1">Font Family</label>
+                    <select
+                      value={styling.fontFamily}
+                      onChange={e => setStyling(prev => ({ ...prev, fontFamily: e.target.value }))}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-zinc-300 focus:outline-none focus:border-zinc-700"
+                    >
+                      <option value="Times-Roman">Times New Roman</option>
+                      <option value="Helvetica">Helvetica</option>
+                      <option value="Courier">Courier</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-zinc-900/40 p-4 border border-zinc-805 rounded-xl text-[11px] text-zinc-500 leading-normal">
+              <span className="font-semibold text-zinc-350 block mb-1">LaTeX Custom Styling</span>
+              Styling configurations are controlled directly using package parameters inside the raw LaTeX code pane (e.g. <code className="text-primary-400 font-mono">{"\\geometry{margin=0.75in}"}</code>).
+            </div>
+          )}
 
-          {/* Bottom widgets area */}
-          <div className="flex flex-col sm:flex-row gap-4 h-auto shrink-0 pb-4">
-            <div className="flex-1">
-              <AtsScoreWidget resumeText={getResumeTextRepresentation()} />
-            </div>
-            <div className="flex-1 bg-zinc-900/40 p-4 border border-zinc-800 rounded-xl space-y-2.5 text-xs text-zinc-400 flex flex-col justify-between">
-              <div className="space-y-1.5">
-                <span className="font-semibold text-zinc-350 block">Resume Rationale & Styling</span>
-                <p className="leading-relaxed text-[11px] text-zinc-500">
-                  This builder is designed specifically around single-page recruiter-friendly standards. 
-                  By separating content fields from styling templates, you avoid parsing bugs and guarantee your resume compiles correctly in automated placement filters.
-                </p>
+          {/* AI Resume Optimizer Widget */}
+          {activeMode === 'form' && (
+            <div className="bg-zinc-900/40 p-5 border border-zinc-800 rounded-xl space-y-4 shadow-xl">
+              <div className="border-b border-zinc-850 pb-2.5 flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <Sparkles className="text-primary-455 animate-pulse" size={14} />
+                  AI Resume Tailor
+                </h3>
+                <span className="text-[8px] font-bold text-primary-400 bg-primary-500/10 px-1.5 py-0.5 rounded border border-primary-500/20 uppercase tracking-widest font-mono select-none">PRO</span>
               </div>
-              <div className="text-[10px] text-zinc-650 font-mono border-t border-zinc-850 pt-2 flex justify-between items-center">
-                <span>Active Template: {templates[selectedTemplate]?.name}</span>
-                <span>🎓 PlaceIQ CV Engine</span>
-              </div>
+              {renderAiOptimizerForm()}
             </div>
-          </div>
+          )}
         </div>
 
       </div>

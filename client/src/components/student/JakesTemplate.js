@@ -12,83 +12,6 @@ Font.register({
   ]
 });
 
-const styles = StyleSheet.create({
-  page: {
-    padding: 35,
-    fontFamily: 'Times-Roman',
-    fontSize: 9.5,
-    color: '#111827',
-    lineHeight: 1.3
-  },
-  headerContainer: {
-    alignItems: 'center',
-    marginBottom: 10
-  },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2
-  },
-  contactDetails: {
-    fontSize: 8.5,
-    color: '#374151',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 4
-  },
-  divider: {
-    fontSize: 8.5,
-    color: '#9ca3af',
-    paddingHorizontal: 2
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    marginTop: 10,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#111827',
-    paddingBottom: 1.5
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 1
-  },
-  boldText: {
-    fontWeight: 'bold'
-  },
-  italicText: {
-    fontStyle: 'italic'
-  },
-  bulletsContainer: {
-    marginLeft: 10,
-    marginTop: 1.5,
-    marginBottom: 4
-  },
-  bulletRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 2
-  },
-  bulletPoint: {
-    width: 8,
-    fontSize: 9.5
-  },
-  bulletText: {
-    flex: 1,
-    fontSize: 9,
-    textAlign: 'justify'
-  },
-  skillsRow: {
-    flexDirection: 'row',
-    marginBottom: 2.5
-  }
-});
-
 const isStandardJsonResume = (data) => {
   return data && data.basics && data.work && Array.isArray(data.skills);
 };
@@ -172,15 +95,120 @@ const convertToStandardJsonResume = (data) => {
   };
 };
 
-const JakesTemplate = ({ data }) => {
+const JakesTemplate = ({ data, styling = {} }) => {
   if (!data) return null;
   const normalized = isStandardJsonResume(data) ? data : convertToStandardJsonResume(data);
   const { basics = {}, education = [], work = [], projects = [], skills = [] } = normalized;
 
+  const fontSize = parseFloat(styling.fontSize || 9.5);
+  const padding = parseFloat(styling.margins || 35);
+  const lineHeight = parseFloat(styling.lineHeight || 1.3);
+  const fontFamily = styling.fontFamily || 'Times-Roman';
+
+  const styles = StyleSheet.create({
+    page: {
+      padding: padding,
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      color: '#111827',
+      lineHeight: lineHeight
+    },
+    headerContainer: {
+      alignItems: 'center',
+      marginBottom: 10
+    },
+    name: {
+      fontSize: fontSize + 8.5,
+      fontWeight: 'bold',
+      marginBottom: 2
+    },
+    contactDetails: {
+      fontSize: fontSize - 1,
+      color: '#374151',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 4
+    },
+    divider: {
+      fontSize: fontSize - 1,
+      color: '#9ca3af',
+      paddingHorizontal: 2
+    },
+    sectionTitle: {
+      fontSize: fontSize + 0.5,
+      fontWeight: 'bold',
+      letterSpacing: 0.5,
+      marginTop: 10,
+      marginBottom: 4,
+      textTransform: 'uppercase',
+      borderBottomWidth: 0.5,
+      borderBottomColor: '#111827',
+      paddingBottom: 1.5
+    },
+    row: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 1
+    },
+    boldText: {
+      fontWeight: 'bold'
+    },
+    italicText: {
+      fontStyle: 'italic'
+    },
+    bulletsContainer: {
+      marginLeft: 10,
+      marginTop: 1.5,
+      marginBottom: 4
+    },
+    bulletRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 2
+    },
+    bulletPoint: {
+      width: 8,
+      fontSize: fontSize
+    },
+    bulletText: {
+      flex: 1,
+      fontSize: fontSize - 0.5,
+      textAlign: 'justify'
+    },
+    skillsRow: {
+      flexDirection: 'row',
+      marginBottom: 2.5
+    }
+  });
+
+  const cleanSocialUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    const clean = trimmed.toLowerCase();
+    if (
+      clean === 'https://github.com' || 
+      clean === 'https://github.com/' || 
+      clean === 'github.com' || 
+      clean === 'github.com/' ||
+      clean.endsWith('github.com') ||
+      clean.endsWith('github.com/')
+    ) return '';
+    if (
+      clean === 'https://linkedin.com/in' || 
+      clean === 'https://linkedin.com/in/' || 
+      clean === 'linkedin.com/in' || 
+      clean === 'linkedin.com/in/' ||
+      clean.endsWith('linkedin.com/in') ||
+      clean.endsWith('linkedin.com/in/')
+    ) return '';
+    return trimmed;
+  };
+
   const githubProfile = basics.profiles?.find(p => p.network?.toLowerCase() === 'github');
   const linkedinProfile = basics.profiles?.find(p => p.network?.toLowerCase() === 'linkedin');
-  const githubUrl = githubProfile?.url || '';
-  const linkedinUrl = linkedinProfile?.url || '';
+  const githubUrl = cleanSocialUrl(githubProfile?.url || '');
+  const linkedinUrl = cleanSocialUrl(linkedinProfile?.url || '');
   const locationCity = basics.location?.city || '';
 
   const languagesSkill = skills.find(s => s.name?.toLowerCase() === 'languages');
