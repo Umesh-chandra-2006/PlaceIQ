@@ -954,34 +954,6 @@ const ResumeBuilder = () => {
     );
   };
 
-  const renderTemplateSelector = () => (
-    <div className="space-y-4 pt-1">
-      <div className="grid grid-cols-1 gap-3">
-        {Object.values(templates).map(tmpl => (
-          <button
-            key={tmpl.id}
-            onClick={() => {
-              setSelectedTemplate(tmpl.id);
-              toast.success(`Switched to ${tmpl.name}!`);
-            }}
-            className={`p-4 rounded-xl border text-left transition-all ${
-              selectedTemplate === tmpl.id 
-                ? 'bg-zinc-900 border-primary-500 shadow-lg shadow-primary-500/5' 
-                : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl select-none">{tmpl.thumbnail}</span>
-              <div>
-                <h4 className={`text-xs font-semibold ${selectedTemplate === tmpl.id ? 'text-primary-400' : 'text-zinc-200'}`}>{tmpl.name}</h4>
-                <p className="text-[10px] text-zinc-500 mt-1 leading-normal">{tmpl.description}</p>
-              </div>
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 
   const renderAiOptimizerForm = () => (
     <div className="space-y-4 pt-1">
