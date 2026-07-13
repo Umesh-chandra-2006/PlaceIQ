@@ -7,7 +7,11 @@ const connect = async () => {
   if (mongoose.connection.readyState !== 0) {
     return;
   }
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryServer.create({
+    instance: {
+      startupTimeoutMS: 60000
+    }
+  });
   const uri = mongoServer.getUri();
   await mongoose.connect(uri);
 };

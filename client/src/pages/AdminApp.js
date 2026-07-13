@@ -45,20 +45,18 @@ const AdminApp = () => {
 
   const [activeDropdown, setActiveDropdown] = useState(null);
 
-  // Close active dropdown on scroll or click outside
+  // Close active dropdown on click outside
   useEffect(() => {
     if (!activeDropdown) return;
     
     const handleClose = (e) => {
-      if (e.type === 'scroll' || !e.target.closest('.relative.flex.justify-end')) {
+      if (!e.target.closest('.relative.flex.justify-end')) {
         setActiveDropdown(null);
       }
     };
 
-    window.addEventListener('scroll', handleClose, true);
     window.addEventListener('click', handleClose, true);
     return () => {
-      window.removeEventListener('scroll', handleClose, true);
       window.removeEventListener('click', handleClose, true);
     };
   }, [activeDropdown]);
