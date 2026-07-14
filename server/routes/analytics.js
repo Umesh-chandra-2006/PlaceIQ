@@ -15,18 +15,19 @@ const cacheMiddleware = require("../middleware/cache");
 // Helper to construct query filters dynamically based on query parameters
 const getFilterMatches = async (req) => {
   const { cohortId, department, dateFrom, dateTo } = req.query;
-  const collegeId = req.user.collegeId;
+  const collegeId = req.user?.collegeId;
+  const validCollegeId = mongoose.isValidObjectId(collegeId) ? new mongoose.Types.ObjectId(collegeId) : new mongoose.Types.ObjectId();
 
   // base student match
   const studentMatch = { 
-    collegeId: new mongoose.Types.ObjectId(collegeId), 
+    collegeId: validCollegeId, 
     role: "student", 
     isActive: { $ne: false } 
   };
   
   // base application match
   const applicationMatch = { 
-    collegeId: new mongoose.Types.ObjectId(collegeId) 
+    collegeId: validCollegeId 
   };
 
   // 1. Cohort / Batch Filter
@@ -391,7 +392,7 @@ router.get("/top-companies", protect, requireRole("coordinator", "admin"), cache
                             $replaceAll: {
                               input: {
                                 $replaceAll: {
-                                  input: "$offerDetails.ctc",
+                                  input: { $ifNull: ["$offerDetails.ctc", "0"] },
                                   find: "LPA",
                                   replacement: ""
                                 }
