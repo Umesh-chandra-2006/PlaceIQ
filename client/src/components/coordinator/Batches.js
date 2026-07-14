@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
-import { Upload, Plus, Download, X, Loader2, Check } from 'lucide-react';
+import { Upload, Plus, Download, X, Loader2, Check, MoreVertical, Mail, UserX, UserCheck, FileText } from 'lucide-react';
 import Pagination from '../shared/Pagination';
+import StudentDetailsDrawer from '../shared/StudentDetailsDrawer';
 
 const Batches = () => {
   const [batches, setBatches] = useState([]);
@@ -17,6 +18,10 @@ const Batches = () => {
   const [newStudent, setNewStudent] = useState({ name: '', email: '', rollNumber: '', branch: '', year: '', cgpa: '' });
   const [submittingStudent, setSubmittingStudent] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Sidebar & Dropdown UI states
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   // Pagination states
   const [page, setPage] = useState(1);
@@ -320,55 +325,105 @@ const Batches = () => {
                     </thead>
                     <tbody className="divide-y divide-zinc-800/50 bg-zinc-950">
                       {students.map(student => (
-                        <tr key={student._id} className={`hover:bg-zinc-900/50 transition-colors ${student.isActive === false ? 'opacity-50' : ''}`}>
-                          <td className="px-4 py-2 font-medium text-zinc-200">{student.name}</td>
-                          <td className="px-4 py-2 text-zinc-500">{student.email}</td>
-                          <td className="px-4 py-2 font-mono text-xs text-zinc-400">{student.rollNumber || '-'}</td>
-                          <td className="px-4 py-2 text-right font-mono text-zinc-300">{student.cgpa || '-'}</td>
-                          <td className="px-4 py-2 text-right">
+                        <tr 
+                          key={student._id} 
+                          onClick={() => setSelectedStudent(student)}
+                          className={`hover:bg-zinc-900/50 transition-colors cursor-pointer ${student.isActive === false ? 'opacity-50' : ''}`}
+                        >
+                          <td className="px-4 py-3.5 font-medium text-zinc-200">{student.name}</td>
+                          <td className="px-4 py-3.5 text-zinc-500">{student.email}</td>
+                          <td className="px-4 py-3.5 font-mono text-xs text-zinc-400">{student.rollNumber || '-'}</td>
+                          <td className="px-4 py-3.5 text-right font-mono text-zinc-300">{student.cgpa || '-'}</td>
+                          <td className="px-4 py-3.5 text-right">
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono uppercase ${
                               student.placementStatus === 'not_placed' ? 'bg-zinc-800 text-zinc-400' : 'bg-primary-500/10 text-primary-500'
                             }`}>
                               {student.placementStatus.replace(/_/g, ' ')}
                             </span>
                           </td>
-                          <td className="px-4 py-2 text-right flex items-center justify-end gap-2">
-                            {student.lastLoginAt ? (
-                              <span className="px-2 py-1 text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded uppercase font-mono tracking-wider">
-                                Logged In
-                              </span>
-                            ) : (
-                              <button 
-                                onClick={async () => {
-                                  try {
-                                    await axios.post(`/batches/students/${student._id}/send-login`);
-                                    setStudents(students.map(s => s._id === student._id ? { ...s, loginEmailSent: true } : s));
-                                    alert('Login email dispatched.');
-                                  } catch(e) {
-                                    alert(e.response?.data?.error || 'Failed to send email.');
-                                  }
+                          <td className="px-4 py-3.5 text-right relative" onClick={e => e.stopPropagation()}>
+                            <div className="inline-block text-left">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDropdown(activeDropdown === student._id ? null : student._id);
                                 }}
-                                disabled={student.loginEmailSent}
-                                className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                                className="p-1 rounded hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 transition-colors"
                               >
-                                {student.loginEmailSent ? 'Mail Sent' : 'Send Login'}
+                                <MoreVertical size={16} />
                               </button>
-                            )}
-                            <button 
-                              onClick={async () => {
-                                try {
-                                  await axios.put(`/batches/students/${student._id}/status`);
-                                  setStudents(students.map(s => s._id === student._id ? { ...s, isActive: s.isActive === false ? true : false } : s));
-                                } catch(e) {
-                                  alert('Failed to update status.');
-                                }
-                              }}
-                              className={`px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded ${
-                                student.isActive !== false ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
-                              }`}
-                            >
-                              {student.isActive !== false ? 'Deactivate' : 'Activate'}
-                            </button>
+                              
+                              {activeDropdown === student._id && (
+                                <>
+                                  <div 
+                                    className="fixed inset-0 z-10" 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveDropdown(null);
+                                    }} 
+                                  />
+                                  <div className="absolute right-0 mt-1 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-20 overflow-hidden text-xs text-zinc-350 text-left font-sans">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedStudent(student);
+                                        setActiveDropdown(null);
+                                      }}
+                                      className="w-full text-left px-3.5 py-2.5 hover:bg-zinc-850 flex items-center gap-2 hover:text-zinc-100 transition-colors"
+                                    >
+                                      <FileText size={13} className="text-primary-400" />
+                                      View Details
+                                    </button>
+                                    
+                                    {!student.lastLoginAt && (
+                                      <button
+                                        disabled={student.loginEmailSent}
+                                        onClick={async () => {
+                                          try {
+                                            await axios.post(`/batches/students/${student._id}/send-login`);
+                                            setStudents(students.map(s => s._id === student._id ? { ...s, loginEmailSent: true } : s));
+                                            alert('Login email dispatched.');
+                                          } catch(e) {
+                                            alert(e.response?.data?.error || 'Failed to send email.');
+                                          } finally {
+                                            setActiveDropdown(null);
+                                          }
+                                        }}
+                                        className="w-full text-left px-3.5 py-2.5 hover:bg-zinc-850 flex items-center gap-2 hover:text-zinc-100 disabled:opacity-40 transition-colors"
+                                      >
+                                        <Mail size={13} className="text-amber-400" />
+                                        {student.loginEmailSent ? 'Mail Sent' : 'Send Login Details'}
+                                      </button>
+                                    )}
+                                    
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          await axios.put(`/batches/students/${student._id}/status`);
+                                          setStudents(students.map(s => s._id === student._id ? { ...s, isActive: s.isActive === false ? true : false } : s));
+                                        } catch(e) {
+                                          alert('Failed to update status.');
+                                        } finally {
+                                          setActiveDropdown(null);
+                                        }
+                                      }}
+                                      className="w-full text-left px-3.5 py-2.5 hover:bg-zinc-850 flex items-center gap-2 hover:text-zinc-100 border-t border-zinc-850/50 transition-colors"
+                                    >
+                                      {student.isActive !== false ? (
+                                        <>
+                                          <UserX size={13} className="text-red-400" />
+                                          Deactivate Account
+                                        </>
+                                      ) : (
+                                        <>
+                                          <UserCheck size={13} className="text-emerald-400" />
+                                          Activate Account
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -514,6 +569,13 @@ const Batches = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {selectedStudent && (
+        <StudentDetailsDrawer 
+          student={selectedStudent} 
+          onClose={() => setSelectedStudent(null)} 
+        />
       )}
     </div>
   );
