@@ -230,8 +230,9 @@ async def scrape_job_url(url: str) -> dict:
     except Exception as e:
         print(f"Playwright fetching failed: {e}")
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=15.0) as client:
-                resp = await client.get(url, headers=STEALTH_HEADERS)
+            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+                # Use Jina Reader API to render JS if Playwright fails
+                resp = await client.get(f"https://r.jina.ai/{url}")
                 html_content = resp.text
             print(f"Fallback HTTP fetched {len(html_content)} chars.")
         except Exception as fallback_e:
