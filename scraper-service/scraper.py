@@ -241,9 +241,14 @@ async def scrape_job_url(url: str) -> dict:
     if not html_content or len(html_content.strip()) < 100:
         raise Exception("Could not fetch meaningful page content from the provided URL.")
 
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
+    api_keys_env = os.getenv("OPENROUTER_API_KEY")
+    if not api_keys_env:
         raise Exception("OPENROUTER_API_KEY is not set.")
+
+    # Support multiple comma-separated API keys to bypass rate limits
+    import random
+    api_keys = [k.strip() for k in api_keys_env.split(",") if k.strip()]
+    api_key = random.choice(api_keys)
 
     today_str = datetime.now().strftime("%Y-%m-%d")
     page_text = html_content[:20000]
