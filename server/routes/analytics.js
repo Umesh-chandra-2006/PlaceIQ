@@ -80,12 +80,15 @@ const getFilterMatches = async (req) => {
 // @desc    Basic overview stats (retained for backward compatibility)
 router.get("/overview", protect, requireRole("coordinator", "admin"), cacheMiddleware(60), async (req, res) => {
   try {
+    const collegeId = req.user?.collegeId;
+    const validCollegeId = mongoose.isValidObjectId(collegeId) ? new mongoose.Types.ObjectId(collegeId) : new mongoose.Types.ObjectId();
+
     const cycle = await PlacementCycle.findOne({ 
-      collegeId: req.user.collegeId, 
+      collegeId: validCollegeId, 
       status: "active" 
     });
     
-    const allStudents = await User.find({ collegeId: req.user.collegeId, role: "student" }).select("isActive isPlaced");
+    const allStudents = await User.find({ collegeId: validCollegeId, role: "student" }).select("isActive isPlaced");
     const activeStudents = allStudents.filter(s => s.isActive !== false);
     const deactivatedStudents = allStudents.filter(s => s.isActive === false);
     
@@ -380,41 +383,47 @@ router.get("/top-companies", protect, requireRole("coordinator", "admin"), cache
       {
         $project: {
           company: "$jobInfo.company",
-          ctcVal: {
-            $convert: {
+          cleanCtc: {
+            $trim: {
               input: {
-                $trim: {
+                $replaceAll: {
                   input: {
                     $replaceAll: {
                       input: {
                         $replaceAll: {
                           input: {
                             $replaceAll: {
-                              input: {
-                                $replaceAll: {
-                                  input: { $ifNull: ["$offerDetails.ctc", "0"] },
-                                  find: "LPA",
-                                  replacement: ""
-                                }
-                              },
-                              find: "lpa",
+                              input: { $ifNull: ["$offerDetails.ctc", "0"] },
+                              find: "LPA",
                               replacement: ""
                             }
                           },
-                          find: "Lakhs",
+                          find: "lpa",
                           replacement: ""
                         }
                       },
-                      find: " ",
+                      find: "Lakhs",
                       replacement: ""
                     }
-                  }
+                  },
+                  find: " ",
+                  replacement: ""
                 }
               }
-            },
-            to: "double",
-            onError: 0.0,
-            onNull: 0.0
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          company: 1,
+          ctcVal: {
+            $convert: {
+              input: "$cleanCtc",
+              to: "double",
+              onError: 0.0,
+              onNull: 0.0
+            }
           }
         }
       },
@@ -444,6 +453,7 @@ router.get("/top-companies", protect, requireRole("coordinator", "admin"), cache
 
     res.json({ companies: formattedCompanies });
   } catch (error) {
+    console.error("Top Companies Error Stack:", error);
     res.status(500).json({ error: error.message });
   }
 });

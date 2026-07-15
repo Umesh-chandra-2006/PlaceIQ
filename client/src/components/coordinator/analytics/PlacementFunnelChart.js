@@ -25,6 +25,30 @@ const PlacementFunnelChart = ({ funnel, loading }) => {
     };
   });
 
+  const renderCustomBarLabel = (props) => {
+    const { x = 0, y = 0, width = 0, height = 0, value, index, payload } = props;
+    if (value === undefined || value === null) return null;
+    
+    let text = `${value}`;
+    let stageIndex = typeof index === 'number' ? index : chartData.findIndex(d => d.stage === payload?.stage);
+    if (stageIndex > 0 && chartData[stageIndex]) {
+      text = `${value} (${chartData[stageIndex]['Conv %']}% conv)`;
+    }
+
+    return (
+      <text
+        x={x + width + 8}
+        y={y + height / 2}
+        fill="#a1a1aa"
+        fontSize={10}
+        fontFamily="monospace"
+        dominantBaseline="middle"
+      >
+        {text}
+      </text>
+    );
+  };
+
   return (
     <div className="border border-zinc-800 rounded bg-zinc-950 p-4 flex flex-col shadow-lg">
       <div className="flex justify-between items-start mb-4">
@@ -39,8 +63,8 @@ const PlacementFunnelChart = ({ funnel, loading }) => {
           No pipeline funnel metrics found for this selection.
         </div>
       ) : (
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <BarChart 
               data={chartData} 
               layout="vertical"
@@ -66,17 +90,7 @@ const PlacementFunnelChart = ({ funnel, loading }) => {
                 fill="#10b981" 
                 radius={[0, 4, 4, 0]} 
                 maxBarSize={28}
-                label={{ 
-                  position: 'right', 
-                  fill: '#a1a1aa', 
-                  fontSize: 10, 
-                  fontFamily: 'monospace',
-                  formatter: (value, entry) => {
-                    const idx = chartData.findIndex(d => d.stage === entry.stage);
-                    if (idx === 0) return `${value}`;
-                    return `${value} (${chartData[idx]['Conv %']}% conv)`;
-                  }
-                }}
+                label={renderCustomBarLabel}
               />
             </BarChart>
           </ResponsiveContainer>

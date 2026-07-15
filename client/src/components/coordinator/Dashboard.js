@@ -13,8 +13,11 @@ const Dashboard = () => {
   });
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const fetchStats = async () => {
+      setLoading(true);
       try {
         const processJobsForDeadlines = (jobsList) => {
           const now = new Date();
@@ -45,10 +48,31 @@ const Dashboard = () => {
         processJobsForDeadlines(activeJobs);
       } catch (error) {
         console.error("Error fetching dashboard stats", error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchStats();
   }, [user.subRole]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="grid grid-cols-4 gap-px bg-zinc-800 border border-zinc-800 rounded overflow-hidden">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-zinc-950 p-4 flex flex-col justify-between h-24">
+              <div className="h-3 w-16 bg-zinc-800 rounded mb-2"></div>
+              <div className="h-8 w-12 bg-zinc-800 rounded"></div>
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="border border-zinc-800 rounded bg-zinc-950 h-32"></div>
+          <div className="border border-zinc-800 rounded bg-zinc-950 h-32"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -60,15 +84,15 @@ const Dashboard = () => {
         </div>
         <div className="bg-zinc-950 p-4 flex flex-col justify-between h-24">
           <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Students</span>
-          <span className="text-3xl font-mono text-zinc-100">{stats.totalStudents || '-'}</span>
+          <span className="text-3xl font-mono text-zinc-100">{stats.totalStudents || '0'}</span>
         </div>
         <div className="bg-zinc-950 p-4 flex flex-col justify-between h-24">
           <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Placed</span>
-          <span className="text-3xl font-mono text-primary-500">{stats.placedStudents || '-'}</span>
+          <span className="text-3xl font-mono text-primary-500">{stats.placedStudents || '0'}</span>
         </div>
         <div className="bg-zinc-950 p-4 flex flex-col justify-between h-24">
           <span className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Placement Rate</span>
-          <span className="text-3xl font-mono text-zinc-100">{stats.placementRate ? stats.placementRate.toFixed(1) : '-'}%</span>
+          <span className="text-3xl font-mono text-zinc-100">{stats.placementRate ? stats.placementRate.toFixed(1) : '0.0'}%</span>
         </div>
       </div>
 

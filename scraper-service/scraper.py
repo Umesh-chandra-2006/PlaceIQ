@@ -313,7 +313,7 @@ Extract these exact keys:
     }
 
     payload = {
-        "model": "meta-llama/llama-3.3-70b-instruct",
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.1,
         "max_tokens": 2000,
@@ -354,5 +354,9 @@ Extract these exact keys:
         return data
 
     except Exception as e:
+        error_msg = str(e)
+        if "429" in error_msg:
+            print("OpenRouter Rate Limit Exceeded (429).")
+            raise Exception("OpenRouter API Rate Limit Reached (429). Please try again later or upgrade your API key credits.")
         print(f"OpenRouter API call failed: {e}")
         raise Exception(f"Failed to parse job details via LLM: {str(e)}")

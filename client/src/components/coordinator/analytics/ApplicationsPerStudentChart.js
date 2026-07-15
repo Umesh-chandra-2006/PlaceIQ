@@ -24,8 +24,8 @@ const ApplicationsPerStudentChart = ({ distData, loading }) => {
           No student application counts recorded.
         </div>
       ) : (
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-64 min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
             <BarChart 
               data={buckets} 
               margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
