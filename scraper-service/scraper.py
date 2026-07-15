@@ -241,15 +241,20 @@ async def scrape_job_url(url: str) -> dict:
     if not html_content or len(html_content.strip()) < 100:
         raise Exception("Could not fetch meaningful page content from the provided URL.")
 
-    api_keys_env = os.getenv("OPENROUTER_API_KEY")
-    if not api_keys_env:
-        raise Exception("OPENROUTER_API_KEY is not set.")
+    providers = []
+    if os.getenv("GEMINI_API_KEY"):
+        providers.append("gemini")
+    if os.getenv("GROQ_API_KEY"):
+        providers.append("groq")
+    if os.getenv("OPENROUTER_API_KEY"):
+        providers.append("openrouter")
+        
+    if not providers:
+        raise Exception("No API keys found. Please set GEMINI_API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY.")
 
-    # Support multiple comma-separated API keys to bypass rate limits
     import random
-    api_keys = [k.strip() for k in api_keys_env.split(",") if k.strip()]
-    api_key = random.choice(api_keys)
-
+    random.shuffle(providers)
+    
     today_str = datetime.now().strftime("%Y-%m-%d")
     page_text = html_content[:20000]
 
@@ -310,32 +315,77 @@ Extract these exact keys:
 </web_page_content>
 """
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "PlaceIQ Scraper",
-    }
+    raw_content = None
+    last_error = None
 
-    payload = {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.1,
-        "max_tokens": 2000,
-    }
+    for provider in providers:
+        try:
+            print(f"Attempting LLM extraction using {provider}...")
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                if provider == "gemini":
+                    gemini_key = os.getenv("GEMINI_API_KEY")
+                    api_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2000}
+                    }
+                    resp = await client.post(api_url, json=payload)
+                    resp.raise_for_status()
+                    resp_data = resp.json()
+                    raw_content = resp_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    
+                elif provider == "groq":
+                    groq_key = os.getenv("GROQ_API_KEY")
+                    api_url = "https://api.groq.com/openai/v1/chat/completions"
+                    headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
+                    payload = {
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.1,
+                        "max_tokens": 2000
+                    }
+                    resp = await client.post(api_url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    resp_data = resp.json()
+                    raw_content = resp_data["choices"][0]["message"]["content"].strip()
+                    
+                elif provider == "openrouter":
+                    or_keys = [k.strip() for k in os.getenv("OPENROUTER_API_KEY").split(",") if k.strip()]
+                    or_key = random.choice(or_keys)
+                    api_url = "https://openrouter.ai/api/v1/chat/completions"
+                    headers = {
+                        "Authorization": f"Bearer {or_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "http://localhost:3000",
+                        "X-Title": "PlaceIQ Scraper"
+                    }
+                    payload = {
+                        "model": "meta-llama/llama-3.3-70b-instruct:free",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.1,
+                        "max_tokens": 2000
+                    }
+                    resp = await client.post(api_url, headers=headers, json=payload)
+                    resp.raise_for_status()
+                    resp_data = resp.json()
+                    raw_content = resp_data["choices"][0]["message"]["content"].strip()
+                    
+            if raw_content:
+                print(f"Successfully generated response with {provider}.")
+                break
+                
+        except Exception as e:
+            error_msg = str(e)
+            if "429" in error_msg:
+                print(f"{provider} Rate Limit Exceeded (429).")
+            else:
+                print(f"{provider} API call failed: {e}")
+            last_error = e
+
+    if not raw_content:
+        raise Exception(f"All available LLM providers failed. Last error: {last_error}")
 
     try:
-        print("Sending prompt to OpenRouter meta-llama/llama-3.3-70b-instruct...")
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json=payload,
-            )
-        response.raise_for_status()
-        resp_data = response.json()
-        raw_content = resp_data["choices"][0]["message"]["content"].strip()
-
         # Extract the JSON block using regex in case of conversational prefix/suffix text
         json_match = re.search(r'\{[\s\S]*\}', raw_content)
         if json_match:
@@ -359,9 +409,5 @@ Extract these exact keys:
         return data
 
     except Exception as e:
-        error_msg = str(e)
-        if "429" in error_msg:
-            print("OpenRouter Rate Limit Exceeded (429).")
-            raise Exception("OpenRouter API Rate Limit Reached (429). Please try again later or upgrade your API key credits.")
-        print(f"OpenRouter API call failed: {e}")
-        raise Exception(f"Failed to parse job details via LLM: {str(e)}")
+        print(f"Failed to parse job details via LLM: {e}")
+        raise Exception(f"Failed to parse JSON details from LLM response: {str(e)}")
