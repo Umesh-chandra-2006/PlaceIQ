@@ -34,7 +34,7 @@ This document is the comprehensive technical reference for PlaceIQ — a multi-t
 ### Microservices & Integrations
 | Service | Purpose |
 |---|---|
-| ScrapeGraphAI (Python/FastAPI) | LLM-powered web scraping of job descriptions |
+| ScrapeGraphAI (Python/FastAPI) | Replaced: Custom Python/FastAPI Scraper with Playwright, Jina AI Fallback, and Multi-Provider LLM Router (Gemini/Groq/OpenRouter) |
 | OpenRouter API (Nvidia Nemotron) | AI-driven JD summarization + student resume deep-review |
 | Twilio API | WhatsApp broadcasting for urgent announcements |
 | Nodemailer | Automated email: deadline reminders, setup links, password resets |

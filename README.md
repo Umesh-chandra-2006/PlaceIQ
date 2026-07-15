@@ -71,7 +71,7 @@ graph TD
 |---|---|
 | **Frontend** | React 18, React Router v6, Tailwind CSS v3, Lucide Icons, Axios, react-hot-toast |
 | **Backend** | Node.js 18+, Express.js, MongoDB 6+, Mongoose, JWT, bcryptjs, Helmet, express-rate-limit |
-| **AI & Integrations** | ScrapeGraphAI (Python/FastAPI), OpenRouter API, Twilio API, Nodemailer, Cloudinary |
+| **AI & Integrations** | Python/FastAPI Scraper (Playwright + Jina AI Reader + Multi-Provider LLM Router), OpenRouter, Groq, Google Gemini, Twilio API, Nodemailer, Cloudinary |
 | **DevOps** | Docker + docker-compose, GitHub Actions CI, Jest + Supertest, ESLint + Prettier |
 
 ---
@@ -112,6 +112,8 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 # Optional: AI & Integrations
 OPENROUTER_API_KEY=your_openrouter_key
+GROQ_API_KEY=your_groq_key
+GEMINI_API_KEY=your_gemini_key
 TWILIO_SID=your_twilio_sid
 TWILIO_AUTH=your_twilio_auth
 TWILIO_WHATSAPP_FROM=+14155238886
@@ -175,7 +177,8 @@ placeiq/
 │
 ├── scraper-service/                # Python FastAPI Microservice
 │   ├── main.py                     # FastAPI server with /health endpoint
-│   ├── scraper.py                  # ScrapeGraphAI + OpenRouter integration
+│   ├── scraper.py                  # Custom Playwright + Jina AI + Multi-Provider LLM scraper
+│   ├── build.sh                    # Render deployment script
 │   └── Dockerfile
 │
 ├── docker-compose.yml              # 3-service orchestration
